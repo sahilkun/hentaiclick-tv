@@ -27,35 +27,35 @@ create policy "Studios are viewable by everyone"
   on public.studios for select using (true);
 
 create policy "Staff can manage studios"
-  on public.studios for all using (public.is_staff());
+  on public.studios for all using (public.is_staff()) with check (public.is_staff());
 
 -- ========== GENRES ==========
 create policy "Genres are viewable by everyone"
   on public.genres for select using (true);
 
 create policy "Staff can manage genres"
-  on public.genres for all using (public.is_staff());
+  on public.genres for all using (public.is_staff()) with check (public.is_staff());
 
 -- ========== SERIES ==========
 create policy "Published series are viewable by everyone"
   on public.series for select using (true);
 
 create policy "Staff can manage series"
-  on public.series for all using (public.is_staff());
+  on public.series for all using (public.is_staff()) with check (public.is_staff());
 
 -- ========== SERIES_GENRES ==========
 create policy "Series genres are viewable by everyone"
   on public.series_genres for select using (true);
 
 create policy "Staff can manage series genres"
-  on public.series_genres for all using (public.is_staff());
+  on public.series_genres for all using (public.is_staff()) with check (public.is_staff());
 
 -- ========== EPISODES ==========
 create policy "Published episodes are viewable by everyone"
   on public.episodes for select using (status = 'published' or public.is_staff());
 
 create policy "Staff can manage episodes"
-  on public.episodes for insert using (public.is_staff());
+  on public.episodes for insert with check (public.is_staff());
 
 create policy "Staff can update episodes"
   on public.episodes for update using (public.is_staff());
@@ -178,4 +178,4 @@ create policy "Site pages are viewable by everyone"
   on public.site_pages for select using (true);
 
 create policy "Admins can manage site pages"
-  on public.site_pages for all using (public.is_admin());
+  on public.site_pages for all using (public.is_admin()) with check (public.is_admin());
