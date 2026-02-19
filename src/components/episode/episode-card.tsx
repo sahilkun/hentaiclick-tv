@@ -1,0 +1,165 @@
+"use client";
+
+import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { Eye, Heart, MessageCircle } from "lucide-react";
+import { cn, formatNumber, getRatingColor, getRatingBgColor } from "@/lib/utils";
+import { QUALITY_LABELS, type Quality } from "@/lib/constants";
+import type { EpisodeWithRelations } from "@/types";
+
+interface EpisodeCardProps {
+  episode: EpisodeWithRelations;
+  className?: string;
+}
+
+export function EpisodeCard({ episode, className }: EpisodeCardProps) {
+  const [hovering, setHovering] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
+
+  const hasGallery =
+    episode.gallery_urls && episode.gallery_urls.length > 0;
+
+  const startGallery = useCallback(() => {
+    if (!hasGallery) return;
+    setHovering(true);
+    setGalleryIndex(0);
+    intervalRef.current = setInterval(() => {
+      setGalleryIndex((prev) =>
+        prev + 1 >= episode.gallery_urls.length ? 0 : prev + 1
+      );
+    }, 1500);
+  }, [hasGallery, episode.gallery_urls?.length]);
+
+  const stopGallery = useCallback(() => {
+    setHovering(false);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  // Build quality badge text (e.g. "4K | FHD 48fps")
+  const qualityBadge = getQualityBadgeText(episode.available_qualities);
+
+  // Rating display
+  const ratingDisplay =
+    episode.rating_count > 0
+      ? episode.rating_avg.toFixed(1)
+      : "N/A";
+  const ratingColor =
+    episode.rating_count > 0
+      ? getRatingColor(episode.rating_avg)
+      : "text-muted-foreground";
+  const ratingBg =
+    episode.rating_count > 0
+      ? getRatingBgColor(episode.rating_avg)
+      : "bg-muted";
+
+  const thumbnailSrc =
+    hovering && hasGallery
+      ? episode.gallery_urls[galleryIndex]
+      : episode.thumbnail_url;
+
+  return (
+    <Link
+      href={`/episode/${episode.slug}`}
+      className={cn(
+        "group block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-lg",
+        className
+      )}
+      onMouseEnter={startGallery}
+      onMouseLeave={stopGallery}
+    >
+      {/* Thumbnail area */}
+      <div className="relative aspect-video overflow-hidden bg-muted">
+        {thumbnailSrc ? (
+          <img
+            src={thumbnailSrc}
+            alt={episode.title}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            No thumbnail
+          </div>
+        )}
+
+        {/* Rating badge (top-left) */}
+        <div
+          className={cn(
+            "absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-xs font-bold text-white",
+            ratingBg
+          )}
+        >
+          {ratingDisplay}
+        </div>
+
+        {/* Quality badge (top-right) */}
+        {qualityBadge && (
+          <div className="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">
+            {qualityBadge}
+          </div>
+        )}
+
+        {/* Stats overlay (bottom) */}
+        <div className="absolute bottom-0 left-0 right-0 flex items-center gap-3 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-6">
+          <span className="flex items-center gap-1 text-xs text-white/90">
+            <Eye className="h-3.5 w-3.5" />
+            {formatNumber(episode.view_count)}
+          </span>
+          <span className="flex items-center gap-1 text-xs text-white/90">
+            <Heart className="h-3.5 w-3.5" />
+            {formatNumber(episode.like_count)}
+          </span>
+          <span className="flex items-center gap-1 text-xs text-white/90">
+            <MessageCircle className="h-3.5 w-3.5" />
+            {formatNumber(episode.comment_count)}
+          </span>
+        </div>
+
+        {/* Gallery indicator dots */}
+        {hovering && hasGallery && (
+          <div className="absolute bottom-8 left-1/2 flex -translate-x-1/2 gap-1">
+            {episode.gallery_urls.slice(0, 8).map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "h-1 w-1 rounded-full",
+                  i === galleryIndex ? "bg-white" : "bg-white/40"
+                )}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Text area */}
+      <div className="p-3">
+        <h3 className="line-clamp-2 text-sm font-semibold leading-tight group-hover:text-primary">
+          {episode.title}
+        </h3>
+        {episode.series && (
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {episode.series.title}
+          </p>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function getQualityBadgeText(qualities: number[]): string {
+  const parts: string[] = [];
+  if (qualities.includes(2160)) parts.push("4K");
+  if (qualities.includes(1080)) parts.push("FHD");
+  else if (qualities.includes(720)) parts.push("HD");
+  return parts.join(" | ");
+}

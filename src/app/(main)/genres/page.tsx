@@ -1,0 +1,32 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import { getGenres } from "@/lib/queries/episodes";
+
+export const metadata: Metadata = {
+  title: "Genres",
+  description: "Browse hentai by genre. Find your favorite categories.",
+};
+
+export const revalidate = 3600;
+
+export default async function GenresPage() {
+  const genres = await getGenres();
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <h1 className="mb-6 text-2xl font-bold">Genres</h1>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {genres.map((genre) => (
+          <Link
+            key={genre.id}
+            href={`/genres/${genre.slug}`}
+            className="flex items-center justify-center rounded-lg border border-border bg-card p-6 text-center font-medium transition-colors hover:bg-accent hover:text-primary"
+          >
+            {genre.name}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
