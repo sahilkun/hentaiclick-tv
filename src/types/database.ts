@@ -161,7 +161,9 @@ export interface Database {
           episode_no: number;
           title: string;
           slug: string;
+          description: string;
           cdn_slug: string;
+          download_cdn_slug: string;
           download_filename: string;
           available_qualities: number[];
           gallery_urls: string[];
@@ -189,7 +191,9 @@ export interface Database {
           episode_no?: number;
           title: string;
           slug: string;
+          description?: string;
           cdn_slug: string;
+          download_cdn_slug?: string;
           download_filename?: string;
           available_qualities?: number[];
           gallery_urls?: string[];
@@ -210,7 +214,9 @@ export interface Database {
           episode_no?: number;
           title?: string;
           slug?: string;
+          description?: string;
           cdn_slug?: string;
+          download_cdn_slug?: string;
           download_filename?: string;
           available_qualities?: number[];
           gallery_urls?: string[];

@@ -25,10 +25,12 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
   const [form, setForm] = useState({
     title: episode?.title ?? "",
     slug: episode?.slug ?? "",
+    description: episode?.description ?? "",
     series_id: episode?.series_id ?? "",
     season_no: episode?.season_no ?? 1,
     episode_no: episode?.episode_no ?? 1,
     cdn_slug: episode?.cdn_slug ?? "",
+    download_cdn_slug: episode?.download_cdn_slug ?? "",
     download_filename: episode?.download_filename ?? "",
     available_qualities: episode?.available_qualities ?? [720, 1080],
     poster_url: episode?.poster_url ?? "",
@@ -127,6 +129,19 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
         </div>
       </div>
 
+      {/* Description */}
+      <div>
+        <label className="mb-1 block text-sm font-medium">Description</label>
+        <Textarea
+          value={form.description}
+          onChange={(e) =>
+            setForm({ ...form, description: e.target.value })
+          }
+          rows={4}
+          placeholder="Episode description..."
+        />
+      </div>
+
       {/* Series, Season, Episode */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
@@ -174,39 +189,63 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
         <h3 className="text-sm font-bold">CDN Settings</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">CDN Slug</label>
+            <label className="mb-1 block text-sm font-medium">
+              Stream CDN Slug
+            </label>
             <Input
               value={form.cdn_slug}
               onChange={(e) =>
                 setForm({ ...form, cdn_slug: e.target.value })
               }
               required
-              placeholder="series-name/episode-01"
+              placeholder="natsu-no-hako-01"
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">
-              Download Filename
+              Download CDN Slug
             </label>
             <Input
-              value={form.download_filename}
+              value={form.download_cdn_slug}
               onChange={(e) =>
-                setForm({ ...form, download_filename: e.target.value })
+                setForm({ ...form, download_cdn_slug: e.target.value })
               }
-              placeholder="Series-Name-Episode-01"
+              placeholder="natsu-to-haku-01"
             />
           </div>
         </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Download Filename
+          </label>
+          <Input
+            value={form.download_filename}
+            onChange={(e) =>
+              setForm({ ...form, download_filename: e.target.value })
+            }
+            placeholder="Natsu to Hako-01"
+          />
+        </div>
 
         {/* Preview URLs */}
-        {form.cdn_slug && (
-          <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-            <p>
-              Stream: {CDN_STREAM_BASE}/{form.cdn_slug}/1080/index.m3u8
-            </p>
-            {form.download_filename && (
+        {(form.cdn_slug || form.download_cdn_slug) && (
+          <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground space-y-1">
+            {form.cdn_slug && (
+              <>
+                <p>
+                  Stream: {CDN_STREAM_BASE}/{form.cdn_slug}/1080/index.m3u8
+                </p>
+                <p>
+                  Subtitle: {CDN_STREAM_BASE}/{form.cdn_slug}/1080/index_vtt.m3u8
+                </p>
+                <p>
+                  Thumbs: {CDN_STREAM_BASE}/{form.cdn_slug}/720/thumbs/thumbs.vtt
+                </p>
+              </>
+            )}
+            {form.download_cdn_slug && form.download_filename && (
               <p>
-                Download: {CDN_DOWNLOAD_BASE}/{form.cdn_slug}/
+                Download: {CDN_DOWNLOAD_BASE}/{form.download_cdn_slug}/
                 {form.download_filename}-1080p.mkv
               </p>
             )}

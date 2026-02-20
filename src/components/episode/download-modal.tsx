@@ -72,7 +72,7 @@ export function DownloadModal({
               ) : (
                 <a
                   href={getDownloadUrl(
-                    episode.cdn_slug,
+                    episode.download_cdn_slug,
                     episode.download_filename,
                     quality
                   )}

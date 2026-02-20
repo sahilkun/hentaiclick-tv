@@ -172,6 +172,7 @@ export default function SearchPage() {
             slug: hit.slug,
             thumbnail_url: hit.thumbnailUrl,
             cdn_slug: hit.cdnSlug,
+            download_cdn_slug: hit.downloadCdnSlug ?? "",
             download_filename: hit.downloadFilename ?? "",
             available_qualities: hit.availableQualities ?? [],
             gallery_urls: hit.galleryUrls ?? [],

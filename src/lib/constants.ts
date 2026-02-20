@@ -1,7 +1,7 @@
 export const CDN_STREAM_BASE =
-  process.env.NEXT_PUBLIC_CDN_STREAM_BASE || "https://c6149z6464.r-cdn.com";
+  process.env.NEXT_PUBLIC_CDN_STREAM_BASE || "https://cdn.rootserver1.com";
 export const CDN_DOWNLOAD_BASE =
-  process.env.NEXT_PUBLIC_CDN_DOWNLOAD_BASE || "https://c6149z6465.r-cdn.com";
+  process.env.NEXT_PUBLIC_CDN_DOWNLOAD_BASE || "https://cdn.rootserver1.com";
 
 export const QUALITY_LEVELS = [480, 720, 1080, 2160] as const;
 export type Quality = (typeof QUALITY_LEVELS)[number];

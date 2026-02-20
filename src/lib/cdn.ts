@@ -26,12 +26,12 @@ export function getThumbsUrl(cdnSlug: string): string {
 
 /**
  * Get download URL for an episode.
- * Pattern: {CDN_DOWNLOAD_BASE}/{cdn_slug}/{download_filename}-{quality}p.mkv
+ * Pattern: {CDN_DOWNLOAD_BASE}/{download_cdn_slug}/{download_filename}-{quality}p.mkv
  */
 export function getDownloadUrl(
-  cdnSlug: string,
+  downloadCdnSlug: string,
   downloadFilename: string,
   quality: Quality
 ): string {
-  return `${CDN_DOWNLOAD_BASE}/${cdnSlug}/${downloadFilename}-${quality}p.mkv`;
+  return `${CDN_DOWNLOAD_BASE}/${downloadCdnSlug}/${downloadFilename}-${quality}p.mkv`;
 }
