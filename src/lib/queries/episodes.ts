@@ -21,6 +21,10 @@ export async function getEpisodes(
     .select(
       `
       *,
+      studio:studio_id (
+        name,
+        slug
+      ),
       series:series_id (
         title,
         slug,
@@ -80,6 +84,10 @@ export async function getEpisodeBySlug(
     .select(
       `
       *,
+      studio:studio_id (
+        name,
+        slug
+      ),
       series:series_id (
         title,
         slug,
@@ -95,19 +103,27 @@ export async function getEpisodeBySlug(
 
   if (error) return null;
 
-  // Fetch genres via series_genres junction
-  if (data?.series_id) {
-    const { data: genreData } = await supabase
+  // Fetch episode-level genres first
+  const { data: episodeGenreData } = await supabase
+    .from("episode_genres")
+    .select("genre:genre_id (id, name, slug)")
+    .eq("episode_id", data.id);
+
+  let genres =
+    episodeGenreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
+
+  // Fall back to series-level genres if no episode-level genres
+  if (genres.length === 0 && data?.series_id) {
+    const { data: seriesGenreData } = await supabase
       .from("series_genres")
       .select("genre:genre_id (id, name, slug)")
       .eq("series_id", data.series_id);
 
-    const genres =
-      genreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
-    return { ...data, genres } as unknown as EpisodeWithRelations;
+    genres =
+      seriesGenreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
   }
 
-  return data as unknown as EpisodeWithRelations;
+  return { ...data, genres } as unknown as EpisodeWithRelations;
 }
 
 export async function getEpisodesBySeries(

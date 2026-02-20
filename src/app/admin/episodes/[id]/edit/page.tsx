@@ -13,15 +13,36 @@ export default async function EditEpisodePage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: episode }, { data: series }] = await Promise.all([
+  const [
+    { data: episode },
+    { data: series },
+    { data: genres },
+    { data: studios },
+    { data: episodeGenres },
+  ] = await Promise.all([
     supabase.from("episodes").select("*").eq("id", id).single(),
     supabase
       .from("series")
       .select("id, title")
       .order("title", { ascending: true }),
+    supabase
+      .from("genres")
+      .select("id, name, slug, is_subgenre, parent_genre_id")
+      .order("name", { ascending: true }),
+    supabase
+      .from("studios")
+      .select("id, name")
+      .order("name", { ascending: true }),
+    supabase
+      .from("episode_genres")
+      .select("genre_id")
+      .eq("episode_id", id),
   ]);
 
   if (!episode) notFound();
+
+  const initialGenreIds =
+    episodeGenres?.map((eg) => eg.genre_id) ?? [];
 
   return (
     <div>
@@ -29,6 +50,10 @@ export default async function EditEpisodePage({ params }: Props) {
       <EpisodeForm
         episode={episode as unknown as Episode}
         series={series ?? []}
+        genres={genres ?? []}
+        studios={studios ?? []}
+        initialGenreIds={initialGenreIds}
+        initialStudioId={episode.studio_id}
       />
     </div>
   );

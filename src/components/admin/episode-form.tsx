@@ -2,22 +2,51 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
-import { QUALITY_LEVELS, CDN_STREAM_BASE, CDN_DOWNLOAD_BASE } from "@/lib/constants";
+import {
+  QUALITY_LEVELS,
+  CDN_STREAM_BASE,
+  CDN_DOWNLOAD_BASE,
+} from "@/lib/constants";
 import type { Episode } from "@/types";
 import slugify from "slugify";
+
+interface GenreOption {
+  id: string;
+  name: string;
+  slug: string;
+  is_subgenre: boolean;
+  parent_genre_id: string | null;
+}
+
+interface StudioOption {
+  id: string;
+  name: string;
+}
 
 interface EpisodeFormProps {
   episode?: Episode;
   series: { id: string; title: string }[];
+  genres: GenreOption[];
+  studios: StudioOption[];
+  initialGenreIds?: string[];
+  initialStudioId?: string | null;
 }
 
-export function EpisodeForm({ episode, series }: EpisodeFormProps) {
+export function EpisodeForm({
+  episode,
+  series,
+  genres,
+  studios,
+  initialGenreIds = [],
+  initialStudioId,
+}: EpisodeFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const isEdit = !!episode;
@@ -27,12 +56,13 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
     slug: episode?.slug ?? "",
     description: episode?.description ?? "",
     series_id: episode?.series_id ?? "",
+    studio_id: initialStudioId ?? episode?.studio_id ?? "",
     season_no: episode?.season_no ?? 1,
     episode_no: episode?.episode_no ?? 1,
-    cdn_slug: episode?.cdn_slug ?? "",
-    download_cdn_slug: episode?.download_cdn_slug ?? "",
-    download_filename: episode?.download_filename ?? "",
+    stream_path: episode?.stream_path ?? "",
+    download_path: episode?.download_path ?? "",
     available_qualities: episode?.available_qualities ?? [720, 1080],
+    download_qualities: episode?.download_qualities ?? [1080, 2160],
     poster_url: episode?.poster_url ?? "",
     thumbnail_url: episode?.thumbnail_url ?? "",
     gallery_urls: episode?.gallery_urls?.join("\n") ?? "",
@@ -43,13 +73,45 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
     meta_description: episode?.meta_description ?? "",
   });
 
+  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(
+    initialGenreIds
+  );
+  const [genreSearch, setGenreSearch] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Group genres: main genres and sub-genres
+  const mainGenres = genres.filter((g) => !g.is_subgenre);
+  const subGenres = genres.filter((g) => g.is_subgenre);
+
+  // Filter genres for the search/dropdown
+  const filteredGenres = genres.filter(
+    (g) =>
+      !selectedGenreIds.includes(g.id) &&
+      g.name.toLowerCase().includes(genreSearch.toLowerCase())
+  );
+
+  const selectedGenres = genres.filter((g) => selectedGenreIds.includes(g.id));
+
+  const toggleGenre = (genreId: string) => {
+    setSelectedGenreIds((prev) =>
+      prev.includes(genreId)
+        ? prev.filter((id) => id !== genreId)
+        : [...prev, genreId]
+    );
+    setGenreSearch("");
+  };
+
+  const removeGenre = (genreId: string) => {
+    setSelectedGenreIds((prev) => prev.filter((id) => id !== genreId));
+  };
 
   const handleTitleChange = (title: string) => {
     setForm({
       ...form,
       title,
-      slug: isEdit ? form.slug : slugify(title, { lower: true, strict: true }),
+      slug: isEdit
+        ? form.slug
+        : slugify(title, { lower: true, strict: true }),
     });
   };
 
@@ -62,24 +124,46 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
     });
   };
 
+  const handleDownloadQualityToggle = (quality: number) => {
+    setForm({
+      ...form,
+      download_qualities: form.download_qualities.includes(quality)
+        ? form.download_qualities.filter((q) => q !== quality)
+        : [...form.download_qualities, quality].sort((a, b) => a - b),
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
     const supabase = createClient();
     const payload = {
-      ...form,
+      title: form.title,
+      slug: form.slug,
+      description: form.description,
+      series_id: form.series_id || null,
+      studio_id: form.studio_id || null,
+      season_no: form.season_no,
+      episode_no: form.episode_no,
+      stream_path: form.stream_path,
+      download_path: form.download_path,
+      available_qualities: form.available_qualities,
+      download_qualities: form.download_qualities,
       gallery_urls: form.gallery_urls
         .split("\n")
         .map((u) => u.trim())
         .filter(Boolean),
-      series_id: form.series_id || null,
       poster_url: form.poster_url || null,
       thumbnail_url: form.thumbnail_url || null,
+      duration_seconds: form.duration_seconds,
       release_date: form.release_date || null,
+      status: form.status,
       meta_title: form.meta_title || null,
       meta_description: form.meta_description || null,
     };
+
+    let episodeId = episode?.id;
 
     if (isEdit) {
       const { error } = await supabase
@@ -89,21 +173,48 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
 
       if (error) {
         toast(error.message, "error");
-      } else {
-        toast("Episode updated", "success");
-        router.push("/admin/episodes");
+        setSaving(false);
+        return;
       }
     } else {
-      const { error } = await supabase.from("episodes").insert(payload);
+      const { data, error } = await supabase
+        .from("episodes")
+        .insert(payload)
+        .select("id")
+        .single();
 
       if (error) {
         toast(error.message, "error");
-      } else {
-        toast("Episode created", "success");
-        router.push("/admin/episodes");
+        setSaving(false);
+        return;
+      }
+      episodeId = data.id;
+    }
+
+    // Save episode genres (delete all then re-insert)
+    if (episodeId) {
+      await supabase
+        .from("episode_genres")
+        .delete()
+        .eq("episode_id", episodeId);
+
+      if (selectedGenreIds.length > 0) {
+        const genreRows = selectedGenreIds.map((genre_id) => ({
+          episode_id: episodeId!,
+          genre_id,
+        }));
+        const { error: genreError } = await supabase
+          .from("episode_genres")
+          .insert(genreRows);
+
+        if (genreError) {
+          console.error("Error saving genres:", genreError);
+        }
       }
     }
 
+    toast(isEdit ? "Episode updated" : "Episode created", "success");
+    router.push("/admin/episodes");
     setSaving(false);
   };
 
@@ -184,69 +295,193 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
         </div>
       </div>
 
-      {/* CDN */}
+      {/* Studio */}
+      <div>
+        <label className="mb-1 block text-sm font-medium">Studio</label>
+        <NativeSelect
+          value={form.studio_id}
+          onChange={(e) => setForm({ ...form, studio_id: e.target.value })}
+        >
+          <option value="">No Studio</option>
+          {studios.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
+
+      {/* Genres */}
+      <div>
+        <label className="mb-1 block text-sm font-medium">Genres</label>
+
+        {/* Selected genres */}
+        {selectedGenres.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {selectedGenres.map((genre) => (
+              <span
+                key={genre.id}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  genre.is_subgenre
+                    ? "bg-orange-500/20 text-orange-400"
+                    : "bg-primary/20 text-primary"
+                }`}
+              >
+                {genre.name}
+                <button
+                  type="button"
+                  onClick={() => removeGenre(genre.id)}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-white/10"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Genre search input */}
+        <Input
+          value={genreSearch}
+          onChange={(e) => setGenreSearch(e.target.value)}
+          placeholder="Search genres..."
+          className="mb-2"
+        />
+
+        {/* Genre list */}
+        <div className="max-h-48 overflow-y-auto rounded-md border border-input bg-background p-2">
+          {mainGenres.length > 0 && (
+            <div className="mb-2">
+              <p className="mb-1 text-xs font-bold uppercase text-muted-foreground">
+                Genres
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {mainGenres
+                  .filter((g) =>
+                    g.name
+                      .toLowerCase()
+                      .includes(genreSearch.toLowerCase())
+                  )
+                  .map((genre) => (
+                    <button
+                      key={genre.id}
+                      type="button"
+                      onClick={() => toggleGenre(genre.id)}
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                        selectedGenreIds.includes(genre.id)
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {genre.name}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {subGenres.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase text-muted-foreground">
+                Sub-genres
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {subGenres
+                  .filter((g) =>
+                    g.name
+                      .toLowerCase()
+                      .includes(genreSearch.toLowerCase())
+                  )
+                  .map((genre) => (
+                    <button
+                      key={genre.id}
+                      type="button"
+                      onClick={() => toggleGenre(genre.id)}
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                        selectedGenreIds.includes(genre.id)
+                          ? "bg-orange-500 text-white"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {genre.name}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {filteredGenres.length === 0 && genreSearch && (
+            <p className="py-2 text-center text-xs text-muted-foreground">
+              No genres found
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* CDN Paths */}
       <div className="space-y-2">
-        <h3 className="text-sm font-bold">CDN Settings</h3>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Stream CDN Slug
-            </label>
+        <h3 className="text-sm font-bold">CDN Paths</h3>
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Stream Path
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {CDN_STREAM_BASE}/
+            </span>
             <Input
-              value={form.cdn_slug}
+              value={form.stream_path}
               onChange={(e) =>
-                setForm({ ...form, cdn_slug: e.target.value })
+                setForm({ ...form, stream_path: e.target.value })
               }
               required
               placeholder="natsu-no-hako-01"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Download CDN Slug
-            </label>
-            <Input
-              value={form.download_cdn_slug}
-              onChange={(e) =>
-                setForm({ ...form, download_cdn_slug: e.target.value })
-              }
-              placeholder="natsu-to-haku-01"
-            />
-          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Folder on CDN. Quality subfolder is appended automatically: /720/index.m3u8
+          </p>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium">
-            Download Filename
+            Download Path
           </label>
-          <Input
-            value={form.download_filename}
-            onChange={(e) =>
-              setForm({ ...form, download_filename: e.target.value })
-            }
-            placeholder="Natsu to Hako-01"
-          />
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {CDN_DOWNLOAD_BASE}/
+            </span>
+            <Input
+              value={form.download_path}
+              onChange={(e) =>
+                setForm({ ...form, download_path: e.target.value })
+              }
+              placeholder="natsu-to-haku-01/Natsu-to-Hako-01"
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            folder/filename without quality suffix. Quality is appended: -1080p.mkv
+          </p>
         </div>
 
         {/* Preview URLs */}
-        {(form.cdn_slug || form.download_cdn_slug) && (
-          <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground space-y-1">
-            {form.cdn_slug && (
+        {(form.stream_path || form.download_path) && (
+          <div className="space-y-1 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
+            {form.stream_path && (
               <>
                 <p>
-                  Stream: {CDN_STREAM_BASE}/{form.cdn_slug}/1080/index.m3u8
+                  Stream: {CDN_STREAM_BASE}/{form.stream_path}/1080/index.m3u8
                 </p>
                 <p>
-                  Subtitle: {CDN_STREAM_BASE}/{form.cdn_slug}/1080/index_vtt.m3u8
+                  Subtitle: {CDN_STREAM_BASE}/{form.stream_path}/1080/index_vtt.m3u8
                 </p>
                 <p>
-                  Thumbs: {CDN_STREAM_BASE}/{form.cdn_slug}/720/thumbs/thumbs.vtt
+                  Thumbs: {CDN_STREAM_BASE}/{form.stream_path}/720/thumbs/thumbs.vtt
                 </p>
               </>
             )}
-            {form.download_cdn_slug && form.download_filename && (
+            {form.download_path && (
               <p>
-                Download: {CDN_DOWNLOAD_BASE}/{form.download_cdn_slug}/
-                {form.download_filename}-1080p.mkv
+                Download: {CDN_DOWNLOAD_BASE}/{form.download_path}-1080p.mkv
               </p>
             )}
           </div>
@@ -254,32 +489,57 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
       </div>
 
       {/* Qualities */}
-      <div>
-        <label className="mb-2 block text-sm font-medium">
-          Available Qualities
-        </label>
-        <div className="flex gap-3">
-          {QUALITY_LEVELS.map((q) => (
-            <label
-              key={q}
-              className="flex items-center gap-1.5 text-sm"
-            >
-              <input
-                type="checkbox"
-                checked={form.available_qualities.includes(q)}
-                onChange={() => handleQualityToggle(q)}
-                className="accent-primary"
-              />
-              {q}p
-            </label>
-          ))}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium">
+            Stream Qualities
+          </label>
+          <div className="flex gap-3">
+            {QUALITY_LEVELS.map((q) => (
+              <label
+                key={q}
+                className="flex items-center gap-1.5 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.available_qualities.includes(q)}
+                  onChange={() => handleQualityToggle(q)}
+                  className="accent-primary"
+                />
+                {q}p
+              </label>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium">
+            Download Qualities
+          </label>
+          <div className="flex gap-3">
+            {QUALITY_LEVELS.map((q) => (
+              <label
+                key={q}
+                className="flex items-center gap-1.5 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.download_qualities.includes(q)}
+                  onChange={() => handleDownloadQualityToggle(q)}
+                  className="accent-primary"
+                />
+                {q}p
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Media URLs */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">Poster URL</label>
+          <label className="mb-1 block text-sm font-medium">
+            Poster URL
+          </label>
           <Input
             value={form.poster_url}
             onChange={(e) =>
@@ -313,7 +573,7 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
             setForm({ ...form, gallery_urls: e.target.value })
           }
           rows={4}
-          placeholder="https://cdn.example.com/img1.jpg&#10;https://cdn.example.com/img2.jpg"
+          placeholder={"https://cdn.example.com/img1.jpg\nhttps://cdn.example.com/img2.jpg"}
         />
       </div>
 
@@ -328,7 +588,10 @@ export function EpisodeForm({ episode, series }: EpisodeFormProps) {
             min={0}
             value={form.duration_seconds}
             onChange={(e) =>
-              setForm({ ...form, duration_seconds: Number(e.target.value) })
+              setForm({
+                ...form,
+                duration_seconds: Number(e.target.value),
+              })
             }
           />
         </div>

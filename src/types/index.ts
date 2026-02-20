@@ -4,15 +4,16 @@ export type { Database, Tables, Profile, Studio, Genre, Series, Episode, Rating,
 export interface EpisodeWithRelations {
   id: string;
   series_id: string | null;
+  studio_id: string | null;
   season_no: number;
   episode_no: number;
   title: string;
   slug: string;
   description: string;
-  cdn_slug: string;
-  download_cdn_slug: string;
-  download_filename: string;
+  stream_path: string;
+  download_path: string;
   available_qualities: number[];
+  download_qualities: number[];
   gallery_urls: string[];
   poster_url: string | null;
   thumbnail_url: string | null;
@@ -37,6 +38,10 @@ export interface EpisodeWithRelations {
       name: string;
       slug: string;
     } | null;
+  } | null;
+  studio?: {
+    name: string;
+    slug: string;
   } | null;
   genres?: {
     id: string;

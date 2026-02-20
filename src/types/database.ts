@@ -153,19 +153,34 @@ export interface Database {
           genre_id?: string;
         };
       };
+      episode_genres: {
+        Row: {
+          episode_id: string;
+          genre_id: string;
+        };
+        Insert: {
+          episode_id: string;
+          genre_id: string;
+        };
+        Update: {
+          episode_id?: string;
+          genre_id?: string;
+        };
+      };
       episodes: {
         Row: {
           id: string;
           series_id: string | null;
+          studio_id: string | null;
           season_no: number;
           episode_no: number;
           title: string;
           slug: string;
           description: string;
-          cdn_slug: string;
-          download_cdn_slug: string;
-          download_filename: string;
+          stream_path: string;
+          download_path: string;
           available_qualities: number[];
+          download_qualities: number[];
           gallery_urls: string[];
           poster_url: string | null;
           thumbnail_url: string | null;
@@ -187,15 +202,16 @@ export interface Database {
         Insert: {
           id?: string;
           series_id?: string | null;
+          studio_id?: string | null;
           season_no?: number;
           episode_no?: number;
           title: string;
           slug: string;
           description?: string;
-          cdn_slug: string;
-          download_cdn_slug?: string;
-          download_filename?: string;
+          stream_path: string;
+          download_path?: string;
           available_qualities?: number[];
+          download_qualities?: number[];
           gallery_urls?: string[];
           poster_url?: string | null;
           thumbnail_url?: string | null;
@@ -210,15 +226,16 @@ export interface Database {
         };
         Update: {
           series_id?: string | null;
+          studio_id?: string | null;
           season_no?: number;
           episode_no?: number;
           title?: string;
           slug?: string;
           description?: string;
-          cdn_slug?: string;
-          download_cdn_slug?: string;
-          download_filename?: string;
+          stream_path?: string;
+          download_path?: string;
           available_qualities?: number[];
+          download_qualities?: number[];
           gallery_urls?: string[];
           poster_url?: string | null;
           thumbnail_url?: string | null;

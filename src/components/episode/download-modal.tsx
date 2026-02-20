@@ -4,10 +4,14 @@ import { useState } from "react";
 import { Download, Lock } from "lucide-react";
 import { Modal, ModalHeader, ModalTitle, ModalClose, ModalBody } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { getDownloadUrl } from "@/lib/cdn";
 import { getDownloadableQualities, needsTurnstile } from "@/lib/access";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
 import type { UserContext, EpisodeWithRelations } from "@/types";
+
+function getProxyDownloadUrl(downloadPath: string, quality: Quality): string {
+  const filePath = `${downloadPath}-${quality}p.mkv`;
+  return `/api/download?path=${encodeURIComponent(filePath)}`;
+}
 
 interface DownloadModalProps {
   open: boolean;
@@ -25,7 +29,7 @@ export function DownloadModal({
   const [turnstileVerified, setTurnstileVerified] = useState(false);
 
   const downloadQualities = getDownloadableQualities(
-    episode.available_qualities,
+    episode.download_qualities,
     userContext,
     episode.upload_date
   );
@@ -71,13 +75,10 @@ export function DownloadModal({
                 </div>
               ) : (
                 <a
-                  href={getDownloadUrl(
-                    episode.download_cdn_slug,
-                    episode.download_filename,
+                  href={getProxyDownloadUrl(
+                    episode.download_path,
                     quality
                   )}
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
                   <Button size="sm">Download</Button>
                 </a>

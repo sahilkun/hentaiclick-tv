@@ -76,7 +76,7 @@ export function WatchPageClient({
     <div>
       {/* Player */}
       <VideoPlayer
-        cdnSlug={episode.cdn_slug}
+        streamPath={episode.stream_path}
         availableQualities={episode.available_qualities as Quality[]}
         allowedQualities={allowedQualities}
         onView={handleView}

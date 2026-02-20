@@ -14,6 +14,7 @@ export interface PlayerState {
   subtitleTrack: string | null;
   audioTrack: number;
   loading: boolean;
+  error: string | null;
 }
 
 export interface PlayerPreferences {

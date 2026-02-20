@@ -56,14 +56,14 @@ export async function configureIndex() {
       "durationSeconds",
       "galleryUrls",
       "posterUrl",
-      "cdnSlug",
-      "downloadFilename",
+      "streamPath",
+      "downloadPath",
       "status",
     ],
   });
 }
 
-export async function reindexAllEpisodes() {
+export async function reindexAllEpisodes(): Promise<number> {
   const supabase = createAdminClient();
   const client = getMeilisearchAdminClient();
 
@@ -72,6 +72,7 @@ export async function reindexAllEpisodes() {
     .select(
       `
       *,
+      studio:studio_id (name, slug),
       series:series_id (
         title,
         slug,
@@ -83,15 +84,35 @@ export async function reindexAllEpisodes() {
 
   if (error || !episodes) {
     console.error("Failed to fetch episodes for reindex:", error);
-    return;
+    return 0;
   }
 
-  // Fetch all series_genres for genre info
+  // Fetch episode-level genres
+  const episodeIds = episodes.map((e: any) => e.id);
+  const episodeGenreMap = new Map<string, { name: string; slug: string }[]>();
+  if (episodeIds.length > 0) {
+    const { data: epGenreData } = await supabase
+      .from("episode_genres")
+      .select("episode_id, genre:genre_id (name, slug)")
+      .in("episode_id", episodeIds);
+
+    if (epGenreData) {
+      for (const row of epGenreData as any[]) {
+        if (!episodeGenreMap.has(row.episode_id)) {
+          episodeGenreMap.set(row.episode_id, []);
+        }
+        if (row.genre) {
+          episodeGenreMap.get(row.episode_id)!.push(row.genre);
+        }
+      }
+    }
+  }
+
+  // Fetch series-level genres as fallback
   const seriesIds = [
     ...new Set(episodes.map((e: any) => e.series_id).filter(Boolean)),
   ];
-
-  const genreMap = new Map<string, { name: string; slug: string }[]>();
+  const seriesGenreMap = new Map<string, { name: string; slug: string }[]>();
   if (seriesIds.length > 0) {
     const { data: genreData } = await supabase
       .from("series_genres")
@@ -100,18 +121,28 @@ export async function reindexAllEpisodes() {
 
     if (genreData) {
       for (const row of genreData as any[]) {
-        if (!genreMap.has(row.series_id)) {
-          genreMap.set(row.series_id, []);
+        if (!seriesGenreMap.has(row.series_id)) {
+          seriesGenreMap.set(row.series_id, []);
         }
         if (row.genre) {
-          genreMap.get(row.series_id)!.push(row.genre);
+          seriesGenreMap.get(row.series_id)!.push(row.genre);
         }
       }
     }
   }
 
   const documents = episodes.map((ep: any) => {
-    const genres = ep.series_id ? genreMap.get(ep.series_id) ?? [] : [];
+    // Episode-level genres first, then fall back to series-level
+    const genres =
+      episodeGenreMap.get(ep.id)?.length
+        ? episodeGenreMap.get(ep.id)!
+        : ep.series_id
+          ? seriesGenreMap.get(ep.series_id) ?? []
+          : [];
+
+    // Episode-level studio first, then fall back to series studio
+    const studioName = ep.studio?.name ?? ep.series?.studio?.name ?? "";
+    const studioSlug = ep.studio?.slug ?? ep.series?.studio?.slug ?? "";
 
     return {
       id: ep.id,
@@ -120,8 +151,8 @@ export async function reindexAllEpisodes() {
       thumbnailUrl: ep.thumbnail_url,
       seriesTitle: ep.series?.title ?? "",
       seriesSlug: ep.series?.slug ?? "",
-      studioName: ep.series?.studio?.name ?? "",
-      studioSlug: ep.series?.studio?.slug ?? "",
+      studioName,
+      studioSlug,
       genreNames: genres.map((g: any) => g.name),
       genreSlugs: genres.map((g: any) => g.slug),
       availableQualities: ep.available_qualities,
@@ -136,8 +167,8 @@ export async function reindexAllEpisodes() {
       durationSeconds: ep.duration_seconds,
       galleryUrls: ep.gallery_urls,
       posterUrl: ep.poster_url,
-      cdnSlug: ep.cdn_slug,
-      downloadFilename: ep.download_filename,
+      streamPath: ep.stream_path,
+      downloadPath: ep.download_path,
       status: ep.status,
       description: ep.meta_description ?? "",
       year: ep.release_date
@@ -148,6 +179,8 @@ export async function reindexAllEpisodes() {
 
   const index = client.index(INDEX_NAME);
   await index.addDocuments(documents, { primaryKey: "id" });
+
+  return documents.length;
 }
 
 export async function syncEpisode(episodeId: string) {
@@ -159,6 +192,7 @@ export async function syncEpisode(episodeId: string) {
     .select(
       `
       *,
+      studio:studio_id (name, slug),
       series:series_id (
         title,
         slug,
@@ -178,17 +212,31 @@ export async function syncEpisode(episodeId: string) {
     return;
   }
 
-  // Fetch genres
-  let genres: { name: string; slug: string }[] = [];
-  if (ep.series_id) {
-    const { data: genreData } = await supabase
+  // Fetch episode-level genres first
+  const { data: epGenreData } = await supabase
+    .from("episode_genres")
+    .select("genre:genre_id (name, slug)")
+    .eq("episode_id", episodeId);
+
+  let genres: { name: string; slug: string }[] =
+    epGenreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
+
+  // Fall back to series-level genres
+  if (genres.length === 0 && ep.series_id) {
+    const { data: seriesGenreData } = await supabase
       .from("series_genres")
       .select("genre:genre_id (name, slug)")
       .eq("series_id", ep.series_id);
 
     genres =
-      genreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
+      seriesGenreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
   }
+
+  // Episode-level studio first, then fall back to series studio
+  const studioName =
+    (ep as any).studio?.name ?? (ep as any).series?.studio?.name ?? "";
+  const studioSlug =
+    (ep as any).studio?.slug ?? (ep as any).series?.studio?.slug ?? "";
 
   await index.addDocuments([
     {
@@ -198,8 +246,8 @@ export async function syncEpisode(episodeId: string) {
       thumbnailUrl: ep.thumbnail_url,
       seriesTitle: (ep as any).series?.title ?? "",
       seriesSlug: (ep as any).series?.slug ?? "",
-      studioName: (ep as any).series?.studio?.name ?? "",
-      studioSlug: (ep as any).series?.studio?.slug ?? "",
+      studioName,
+      studioSlug,
       genreNames: genres.map((g) => g.name),
       genreSlugs: genres.map((g) => g.slug),
       availableQualities: ep.available_qualities,
@@ -214,8 +262,8 @@ export async function syncEpisode(episodeId: string) {
       durationSeconds: ep.duration_seconds,
       galleryUrls: ep.gallery_urls,
       posterUrl: ep.poster_url,
-      cdnSlug: ep.cdn_slug,
-      downloadFilename: ep.download_filename,
+      streamPath: ep.stream_path,
+      downloadPath: ep.download_path,
       status: ep.status,
       description: ep.meta_description ?? "",
       year: ep.release_date
