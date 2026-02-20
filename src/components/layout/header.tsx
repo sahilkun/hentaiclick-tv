@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Shuffle,
   User,
@@ -17,17 +17,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
+import { useAuth } from "@/hooks/use-auth";
 import { SearchBar } from "./search-bar";
 import { ThemeToggle } from "./theme-toggle";
-
-// Placeholder until auth is implemented
-interface UserProfile {
-  id: string;
-  username: string;
-  displayName: string;
-  avatarUrl?: string;
-  role: "user" | "moderator" | "admin";
-}
+import type { Profile } from "@/types";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -37,8 +30,21 @@ const navLinks = [
 
 export function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  // Placeholder — will be replaced with real auth
-  const user = null as UserProfile | null;
+  const { user, signOut } = useAuth();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [userMenuOpen]);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -89,8 +95,19 @@ export function Header() {
             Get Premium
           </Link>
 
+          {/* Admin button — visible in header bar for admin/mod */}
+          {user && (user.role === "admin" || user.role === "moderator") && (
+            <Link
+              href="/admin"
+              className="hidden h-9 items-center gap-1.5 rounded-md bg-destructive px-3 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 sm:flex"
+            >
+              <Shield className="h-4 w-4" />
+              Admin
+            </Link>
+          )}
+
           {/* User menu */}
-          <div className="relative">
+          <div className="relative" ref={menuRef}>
             <button
               type="button"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -98,17 +115,17 @@ export function Header() {
             >
               {user ? (
                 <>
-                  {user.avatarUrl ? (
+                  {user.avatar_url ? (
                     <img
-                      src={user.avatarUrl}
-                      alt={user.displayName}
+                      src={user.avatar_url}
+                      alt={user.display_name}
                       className="h-6 w-6 rounded-full object-cover"
                     />
                   ) : (
                     <User className="h-4 w-4" />
                   )}
                   <span className="hidden max-w-24 truncate sm:inline">
-                    {user.displayName}
+                    {user.display_name}
                   </span>
                 </>
               ) : (
@@ -124,6 +141,7 @@ export function Header() {
               <UserDropdown
                 user={user}
                 onClose={() => setUserMenuOpen(false)}
+                onSignOut={signOut}
               />
             )}
           </div>
@@ -136,9 +154,11 @@ export function Header() {
 function UserDropdown({
   user,
   onClose,
+  onSignOut,
 }: {
-  user: UserProfile | null;
+  user: Profile | null;
   onClose: () => void;
+  onSignOut: () => Promise<void>;
 }) {
   if (!user) {
     return (
@@ -160,7 +180,7 @@ function UserDropdown({
   return (
     <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-lg">
       <div className="px-3 py-2">
-        <p className="text-sm font-medium">{user.displayName}</p>
+        <p className="text-sm font-medium">{user.display_name}</p>
         <p className="text-xs text-muted-foreground">@{user.username}</p>
       </div>
       <hr className="my-1 border-border" />
@@ -194,7 +214,10 @@ function UserDropdown({
       </DropdownLink>
       <button
         type="button"
-        onClick={onClose}
+        onClick={() => {
+          onClose();
+          onSignOut();
+        }}
         className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-accent"
       >
         <LogOut className="h-4 w-4" />

@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   const offset = parseInt(searchParams.get("offset") ?? "0");
   const sort = searchParams.get("sort") ?? "uploadDate:desc";
   const genres = searchParams.get("genres")?.split(",").filter(Boolean) ?? [];
+  const blacklist = searchParams.get("blacklist")?.split(",").filter(Boolean) ?? [];
   const studios = searchParams.get("studios")?.split(",").filter(Boolean) ?? [];
   const minRating = parseFloat(searchParams.get("min_rating") ?? "0");
 
@@ -21,6 +22,11 @@ export async function GET(request: Request) {
       filters.push(
         genres.map((g) => `genreSlugs = "${g}"`).join(" OR ")
       );
+    }
+    if (blacklist.length > 0) {
+      for (const slug of blacklist) {
+        filters.push(`genreSlugs != "${slug}"`);
+      }
     }
     if (studios.length > 0) {
       filters.push(

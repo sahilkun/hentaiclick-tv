@@ -13,9 +13,12 @@ import {
   FileText,
   ScrollText,
   SearchCode,
+  ArrowLeft,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
+import { useAuth } from "@/hooks/use-auth";
 
 const adminLinks = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -32,6 +35,7 @@ const adminLinks = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const { signOut } = useAuth();
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 border-r border-border bg-card lg:block">
@@ -65,13 +69,22 @@ export function AdminSidebar() {
         })}
       </nav>
 
-      <div className="absolute bottom-0 w-full border-t border-border p-3">
+      <div className="absolute bottom-0 w-full border-t border-border p-3 space-y-1">
         <Link
           href="/"
           className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          ← Back to Site
+          <ArrowLeft className="h-4 w-4" />
+          Back to Site
         </Link>
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-accent"
+        >
+          <LogOut className="h-4 w-4" />
+          Log Out
+        </button>
       </div>
     </aside>
   );

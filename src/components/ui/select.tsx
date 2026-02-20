@@ -81,14 +81,17 @@ function CustomSelect({
         disabled={disabled}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-          !selectedOption && "text-muted-foreground"
+          "flex h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          open
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-input bg-background",
+          !selectedOption && !open && "text-muted-foreground"
         )}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        <ChevronDown className={cn("ml-2 h-4 w-4 shrink-0 transition-transform", open ? "rotate-180 opacity-70" : "opacity-50")} />
       </button>
       {open && (
         <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-card py-1 shadow-md">

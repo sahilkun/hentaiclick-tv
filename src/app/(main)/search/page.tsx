@@ -2,13 +2,30 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, ChevronDown, X, Ban } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/select";
-import { EpisodeGrid, EpisodeGridSkeleton } from "@/components/episode/episode-grid";
+import {
+  EpisodeGrid,
+  EpisodeGridSkeleton,
+} from "@/components/episode/episode-grid";
 import { SEARCH_PAGE_SIZE } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { EpisodeWithRelations } from "@/types";
+
+interface GenreItem {
+  id: string;
+  name: string;
+  slug: string;
+  is_subgenre: boolean;
+  parent_genre_id: string | null;
+}
+
+interface GenreGroup {
+  parent: GenreItem;
+  children: GenreItem[];
+}
 
 const SORT_OPTIONS = [
   { value: "uploadDate:desc", label: "Recently Uploaded" },
@@ -41,12 +58,94 @@ export default function SearchPage() {
   const [minRating, setMinRating] = useState(
     searchParams.get("min_rating") ?? "0"
   );
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(
+    searchParams.get("genres")?.split(",").filter(Boolean) ?? []
+  );
+  const [blacklistedGenres, setBlacklistedGenres] = useState<string[]>(
+    searchParams.get("blacklist")?.split(",").filter(Boolean) ?? []
+  );
   const [page, setPage] = useState(
     parseInt(searchParams.get("page") ?? "1")
   );
   const [results, setResults] = useState<EpisodeWithRelations[]>([]);
   const [totalHits, setTotalHits] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Genres state
+  const [allGenres, setAllGenres] = useState<GenreItem[]>([]);
+  const [genreGroups, setGenreGroups] = useState<GenreGroup[]>([]);
+  const [standaloneGenres, setStandaloneGenres] = useState<GenreItem[]>([]);
+  const [showGenres, setShowGenres] = useState(
+    (searchParams.get("genres")?.split(",").filter(Boolean) ?? []).length > 0
+  );
+  const [showBlacklist, setShowBlacklist] = useState(
+    (searchParams.get("blacklist")?.split(",").filter(Boolean) ?? []).length > 0
+  );
+
+  // Fetch genres on mount
+  useEffect(() => {
+    fetch("/api/genres")
+      .then((r) => r.json())
+      .then((genres: GenreItem[]) => {
+        setAllGenres(genres);
+
+        const parents = genres.filter((g) => !g.is_subgenre);
+        const children = genres.filter((g) => g.is_subgenre);
+
+        const groups: GenreGroup[] = [];
+        const parentsWithChildren = new Set<string>();
+
+        for (const parent of parents) {
+          const kids = children.filter(
+            (c) => c.parent_genre_id === parent.id
+          );
+          if (kids.length > 0) {
+            groups.push({ parent, children: kids });
+            parentsWithChildren.add(parent.id);
+          }
+        }
+
+        const standalone = parents.filter(
+          (p) => !parentsWithChildren.has(p.id)
+        );
+
+        setGenreGroups(groups);
+        setStandaloneGenres(standalone);
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleGenre = (slug: string) => {
+    // Don't allow selecting a blacklisted genre
+    if (blacklistedGenres.includes(slug)) return;
+    setSelectedGenres((prev) =>
+      prev.includes(slug)
+        ? prev.filter((s) => s !== slug)
+        : [...prev, slug]
+    );
+    setPage(1);
+  };
+
+  const clearGenres = () => {
+    setSelectedGenres([]);
+    setPage(1);
+  };
+
+  const toggleBlacklist = (slug: string) => {
+    setBlacklistedGenres((prev) =>
+      prev.includes(slug)
+        ? prev.filter((s) => s !== slug)
+        : [...prev, slug]
+    );
+    // Also remove from selected genres if it's being blacklisted
+    setSelectedGenres((prev) => prev.filter((s) => s !== slug));
+    setPage(1);
+  };
+
+  const clearBlacklist = () => {
+    setBlacklistedGenres([]);
+    setPage(1);
+  };
 
   const fetchResults = useCallback(async () => {
     setLoading(true);
@@ -57,12 +156,15 @@ export default function SearchPage() {
     params.set("limit", String(SEARCH_PAGE_SIZE));
     params.set("offset", String((page - 1) * SEARCH_PAGE_SIZE));
     if (minRating !== "0") params.set("min_rating", minRating);
+    if (selectedGenres.length > 0)
+      params.set("genres", selectedGenres.join(","));
+    if (blacklistedGenres.length > 0)
+      params.set("blacklist", blacklistedGenres.join(","));
 
     try {
       const res = await fetch(`/api/search?${params}`);
       if (res.ok) {
         const data = await res.json();
-        // Map Meilisearch hits to EpisodeWithRelations shape
         setResults(
           data.hits.map((hit: any) => ({
             id: hit.id,
@@ -101,7 +203,7 @@ export default function SearchPage() {
     } catch {}
 
     setLoading(false);
-  }, [query, sort, minRating, page]);
+  }, [query, sort, minRating, selectedGenres, blacklistedGenres, page]);
 
   useEffect(() => {
     fetchResults();
@@ -113,11 +215,15 @@ export default function SearchPage() {
     if (query) params.set("q", query);
     if (sort !== "uploadDate:desc") params.set("sort", sort);
     if (minRating !== "0") params.set("min_rating", minRating);
+    if (selectedGenres.length > 0)
+      params.set("genres", selectedGenres.join(","));
+    if (blacklistedGenres.length > 0)
+      params.set("blacklist", blacklistedGenres.join(","));
     if (page > 1) params.set("page", String(page));
 
     const url = `/search${params.toString() ? `?${params}` : ""}`;
     router.replace(url, { scroll: false });
-  }, [query, sort, minRating, page, router]);
+  }, [query, sort, minRating, selectedGenres, blacklistedGenres, page, router]);
 
   const totalPages = Math.ceil(totalHits / SEARCH_PAGE_SIZE);
 
@@ -146,7 +252,7 @@ export default function SearchPage() {
       </form>
 
       {/* Filters row */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <CustomSelect
           options={SORT_OPTIONS}
           value={sort}
@@ -167,7 +273,224 @@ export default function SearchPage() {
           placeholder="Min Rating"
           className="w-40"
         />
+        <button
+          type="button"
+          onClick={() => setShowGenres(!showGenres)}
+          className={cn(
+            "flex h-10 items-center justify-between gap-2 rounded-md border px-3 text-sm transition-colors",
+            showGenres
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-input bg-background"
+          )}
+        >
+          <span>Genres</span>
+          {selectedGenres.length > 0 && (
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-xs font-medium",
+                showGenres
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-primary text-primary-foreground"
+              )}
+            >
+              {selectedGenres.length}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 opacity-50 transition-transform",
+              showGenres && "rotate-180"
+            )}
+          />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowBlacklist(!showBlacklist)}
+          className={cn(
+            "flex h-10 items-center justify-between gap-2 rounded-md border px-3 text-sm transition-colors",
+            showBlacklist
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-input bg-background"
+          )}
+        >
+          <Ban className="h-3.5 w-3.5" />
+          <span>Blacklist</span>
+          {blacklistedGenres.length > 0 && (
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-xs font-medium",
+                showBlacklist
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-primary text-primary-foreground"
+              )}
+            >
+              {blacklistedGenres.length}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 opacity-50 transition-transform",
+              showBlacklist && "rotate-180"
+            )}
+          />
+        </button>
+
+        {selectedGenres.length > 0 && (
+          <button
+            type="button"
+            onClick={clearGenres}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear genres
+          </button>
+        )}
+        {blacklistedGenres.length > 0 && (
+          <button
+            type="button"
+            onClick={clearBlacklist}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear blacklist
+          </button>
+        )}
       </div>
+
+      {/* Selected genre tags (when panel is closed) */}
+      {selectedGenres.length > 0 && !showGenres && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {selectedGenres.map((slug) => {
+            const genre = allGenres.find((g) => g.slug === slug);
+            return (
+              <button
+                key={slug}
+                type="button"
+                onClick={() => toggleGenre(slug)}
+                className="flex items-center gap-1 rounded-full bg-primary/20 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/30"
+              >
+                {genre?.name ?? slug}
+                <X className="h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Genre filter panel */}
+      {showGenres && (
+        <div className="mb-6 rounded-lg border border-border bg-card p-4">
+          {/* Standalone genres (no children) */}
+          {standaloneGenres.length > 0 && (
+            <div className="mb-4">
+              <h3 className="mb-2 text-sm font-semibold text-foreground">
+                Genres
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {standaloneGenres.map((genre) => (
+                  <GenreTag
+                    key={genre.slug}
+                    genre={genre}
+                    selected={selectedGenres.includes(genre.slug)}
+                    disabled={blacklistedGenres.includes(genre.slug)}
+                    onClick={() => toggleGenre(genre.slug)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Grouped genres (parent + children) */}
+          {genreGroups.map((group) => (
+            <div key={group.parent.id} className="mb-4 last:mb-0">
+              <h3 className="mb-2 text-sm font-semibold text-foreground">
+                {group.parent.name}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {group.children.map((genre) => (
+                  <GenreTag
+                    key={genre.slug}
+                    genre={genre}
+                    selected={selectedGenres.includes(genre.slug)}
+                    disabled={blacklistedGenres.includes(genre.slug)}
+                    onClick={() => toggleGenre(genre.slug)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Blacklisted genre tags (when panel is closed) */}
+      {blacklistedGenres.length > 0 && !showBlacklist && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {blacklistedGenres.map((slug) => {
+            const genre = allGenres.find((g) => g.slug === slug);
+            return (
+              <button
+                key={slug}
+                type="button"
+                onClick={() => toggleBlacklist(slug)}
+                className="flex items-center gap-1 rounded-full bg-destructive/20 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/30"
+              >
+                <Ban className="h-3 w-3" />
+                {genre?.name ?? slug}
+                <X className="h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Blacklist filter panel */}
+      {showBlacklist && (
+        <div className="mb-6 rounded-lg border border-destructive/50 bg-card p-4">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Select genres to exclude from search results
+          </p>
+          {/* Standalone genres (no children) */}
+          {standaloneGenres.length > 0 && (
+            <div className="mb-4">
+              <h3 className="mb-2 text-sm font-semibold text-foreground">
+                Genres
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {standaloneGenres.map((genre) => (
+                  <GenreTag
+                    key={genre.slug}
+                    genre={genre}
+                    selected={blacklistedGenres.includes(genre.slug)}
+                    variant="blacklist"
+                    onClick={() => toggleBlacklist(genre.slug)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Grouped genres (parent + children) */}
+          {genreGroups.map((group) => (
+            <div key={group.parent.id} className="mb-4 last:mb-0">
+              <h3 className="mb-2 text-sm font-semibold text-foreground">
+                {group.parent.name}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {group.children.map((genre) => (
+                  <GenreTag
+                    key={genre.slug}
+                    genre={genre}
+                    selected={blacklistedGenres.includes(genre.slug)}
+                    variant="blacklist"
+                    onClick={() => toggleBlacklist(genre.slug)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Results count */}
       <p className="mb-4 text-sm text-muted-foreground">
@@ -229,5 +552,40 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function GenreTag({
+  genre,
+  selected,
+  disabled,
+  variant = "default",
+  onClick,
+}: {
+  genre: GenreItem;
+  selected: boolean;
+  disabled?: boolean;
+  variant?: "default" | "blacklist";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+        disabled && "opacity-40 cursor-not-allowed",
+        variant === "blacklist"
+          ? selected
+            ? "bg-destructive text-destructive-foreground"
+            : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+          : selected
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+      )}
+    >
+      {genre.name}
+    </button>
   );
 }
