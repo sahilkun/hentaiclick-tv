@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { TriangleAlert, RotateCcw } from "lucide-react";
 import Hls from "hls.js";
 import { cn } from "@/lib/utils";
-import { getStreamUrl, getSubtitleUrl } from "@/lib/cdn";
+import { getStreamUrl, getSubtitleUrl, getThumbsUrl } from "@/lib/cdn";
 import type { Quality } from "@/lib/constants";
 import {
   loadPreferences,
@@ -14,8 +14,139 @@ import {
 import { PlayerControls } from "./player-controls";
 import { PlayerToast } from "./player-toast";
 
+export interface ThumbCue {
+  start: number;
+  end: number;
+  url: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function parseVttThumbs(vttText: string, baseUrl: string): ThumbCue[] {
+  const cues: ThumbCue[] = [];
+  // Normalize CRLF → LF before splitting
+  const normalized = vttText.replace(/\r\n/g, "\n");
+  const blocks = normalized.split(/\n\n+/);
+  for (const block of blocks) {
+    const lines = block.trim().split("\n");
+    const timeLine = lines.find((l) => l.includes("-->"));
+    const urlLine = lines.find(
+      (l) =>
+        (l.includes(".jpg") || l.includes(".png") || l.includes(".webp")) &&
+        !l.includes("-->")
+    );
+    if (!timeLine || !urlLine) continue;
+
+    const [startStr, endStr] = timeLine.split("-->").map((s) => s.trim());
+    const start = parseVttTime(startStr);
+    const end = parseVttTime(endStr);
+
+    // Skip invalid cues (end <= start)
+    if (end <= start) continue;
+
+    const hashIdx = urlLine.indexOf("#xywh=");
+    let url: string;
+    let x = 0,
+      y = 0,
+      w = 160,
+      h = 90;
+    if (hashIdx !== -1) {
+      const path = urlLine.substring(0, hashIdx).trim();
+      url = path.startsWith("http") ? path : `${baseUrl}/${path}`;
+      const coords = urlLine.substring(hashIdx + 6).split(",").map(Number);
+      [x, y, w, h] = coords;
+    } else {
+      const path = urlLine.trim();
+      url = path.startsWith("http") ? path : `${baseUrl}/${path}`;
+    }
+
+    cues.push({ start, end, url, x, y, w, h });
+  }
+  return cues;
+}
+
+function parseVttTime(str: string): number {
+  const parts = str.split(":");
+  if (parts.length === 3) {
+    const [h, m, s] = parts;
+    return Number(h) * 3600 + Number(m) * 60 + parseFloat(s);
+  }
+  if (parts.length === 2) {
+    const [m, s] = parts;
+    return Number(m) * 60 + parseFloat(s);
+  }
+  return parseFloat(str);
+}
+
+/**
+ * Parse an HLS m3u8 playlist and fetch all VTT segments, returning
+ * a concatenated VTT blob URL that can be used as a <track> src.
+ */
+async function loadSubtitleVtt(
+  subtitleM3u8Url: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(subtitleM3u8Url);
+    if (!res.ok) return null;
+    const text = await res.text();
+
+    // Parse segment filenames from the m3u8
+    const segmentNames = text
+      .split("\n")
+      .filter((line) => line.trim() && !line.startsWith("#"));
+
+    if (segmentNames.length === 0) return null;
+
+    const baseUrl = subtitleM3u8Url.substring(
+      0,
+      subtitleM3u8Url.lastIndexOf("/")
+    );
+
+    // Fetch all VTT segments in parallel
+    const segmentPromises = segmentNames.map((name) =>
+      fetch(`${baseUrl}/${name.trim()}`).then((r) =>
+        r.ok ? r.text() : ""
+      )
+    );
+    const segments = await Promise.all(segmentPromises);
+
+    // Concatenate: keep WEBVTT header from first segment, strip from rest
+    let combined = "";
+    for (let i = 0; i < segments.length; i++) {
+      // Normalize CRLF → LF
+      const seg = segments[i].replace(/\r\n/g, "\n").trim();
+      if (!seg) continue;
+      if (i === 0) {
+        combined = seg;
+      } else {
+        // Remove WEBVTT header line and any NOTE/STYLE blocks from subsequent segments
+        const lines = seg.split("\n");
+        const startIdx = lines.findIndex(
+          (l, idx) => idx > 0 && l.includes("-->")
+        );
+        if (startIdx > 0) {
+          // Include the line before --> (the cue identifier, if any)
+          const cueStart = lines[startIdx - 1]?.trim()
+            ? startIdx - 1
+            : startIdx;
+          combined += "\n\n" + lines.slice(cueStart).join("\n");
+        }
+      }
+    }
+
+    const blob = new Blob([combined], { type: "text/vtt" });
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
+
 interface VideoPlayerProps {
-  streamPath: string;
+  streamLinks: Record<string, string>;
+  subtitleLinks: Record<string, string>;
+  thumbnailPath: string;
   availableQualities: Quality[];
   allowedQualities: Quality[];
   onView?: () => void;
@@ -23,7 +154,9 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({
-  streamPath,
+  streamLinks,
+  subtitleLinks,
+  thumbnailPath,
   availableQualities,
   allowedQualities,
   onView,
@@ -36,10 +169,14 @@ export function VideoPlayer({
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const playTimeRef = useRef(0);
   const retryCountRef = useRef(0);
+  const currentQualityRef = useRef<Quality>(720);
+  const subtitleBlobUrlRef = useRef<string | null>(null);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const MAX_RETRIES = 3;
 
   const [toast, setToast] = useState<string | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [thumbCues, setThumbCues] = useState<ThumbCue[]>([]);
   const [state, setState] = useState<PlayerState>({
     playing: false,
     currentTime: 0,
@@ -50,7 +187,7 @@ export function VideoPlayer({
     fullscreen: false,
     quality: "auto",
     playbackSpeed: 1,
-    subtitlesEnabled: false,
+    subtitlesEnabled: true,
     subtitleTrack: null,
     audioTrack: 0,
     loading: true,
@@ -62,88 +199,50 @@ export function VideoPlayer({
     setTimeout(() => setToast(null), 1500);
   }, []);
 
-  const retryLoad = useCallback(() => {
-    const video = videoRef.current;
-    if (!video || !streamPath) return;
+  // Core HLS setup function — stored in a ref so it's always current
+  // but never causes re-renders or effect re-runs
+  const setupHlsRef = useRef<
+    (video: HTMLVideoElement, quality: Quality, restoreTime?: number) => void
+  >(() => {});
 
-    retryCountRef.current = 0;
-    setState((s) => ({ ...s, loading: true, error: null }));
-
+  setupHlsRef.current = (
+    video: HTMLVideoElement,
+    quality: Quality,
+    restoreTime?: number
+  ) => {
     hlsRef.current?.destroy();
+    retryCountRef.current = 0;
+    currentQualityRef.current = quality;
 
-    const prefs = loadPreferences();
-    const defaultQuality =
-      prefs.preferredQuality !== "auto" &&
-      allowedQualities.includes(prefs.preferredQuality)
-        ? prefs.preferredQuality
-        : allowedQualities[allowedQualities.length - 1] ?? 720;
-
-    const streamUrl = getStreamUrl(streamPath, defaultQuality as Quality);
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({ startLevel: -1, capLevelToPlayerSize: true });
-      hlsRef.current = hls;
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        retryCountRef.current = 0;
-        setState((s) => ({ ...s, loading: false, error: null }));
-      });
-
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            retryCountRef.current++;
-            if (retryCountRef.current <= MAX_RETRIES) {
-              setTimeout(() => hls.startLoad(), 1000 * retryCountRef.current);
-            } else {
-              setState((s) => ({
-                ...s,
-                loading: false,
-                error: "Video unavailable. The stream could not be loaded.",
-              }));
-            }
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            hls.recoverMediaError();
-          } else {
-            setState((s) => ({
-              ...s,
-              loading: false,
-              error: "An unexpected playback error occurred.",
-            }));
-          }
-        }
-      });
+    // Clean up old subtitle blob URL
+    if (subtitleBlobUrlRef.current) {
+      URL.revokeObjectURL(subtitleBlobUrlRef.current);
+      subtitleBlobUrlRef.current = null;
     }
-  }, [streamPath, allowedQualities]);
+    // Remove existing track elements
+    const existingTracks = video.querySelectorAll("track");
+    existingTracks.forEach((t) => t.remove());
 
-  // Initialize HLS
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !streamPath) return;
-
-    const prefs = loadPreferences();
-    const defaultQuality =
-      prefs.preferredQuality !== "auto" &&
-      allowedQualities.includes(prefs.preferredQuality)
-        ? prefs.preferredQuality
-        : allowedQualities[allowedQualities.length - 1] ?? 720;
-
-    const streamUrl = getStreamUrl(streamPath, defaultQuality as Quality);
+    const streamUrl = getStreamUrl(streamLinks, quality);
+    if (!streamUrl) return;
 
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        startLevel: -1,
-        capLevelToPlayerSize: true,
-      });
+      const hls = new Hls({ startLevel: -1 });
       hlsRef.current = hls;
-      hls.loadSource(streamUrl);
+
+      // Recommended order: attachMedia first, then loadSource on MEDIA_ATTACHED
       hls.attachMedia(video);
+
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+        hls.loadSource(streamUrl);
+      });
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         retryCountRef.current = 0;
         setState((s) => ({ ...s, loading: false, error: null }));
+        if (restoreTime !== undefined) {
+          video.currentTime = restoreTime;
+        }
       });
 
       hls.on(Hls.Events.ERROR, (_, data) => {
@@ -154,7 +253,10 @@ export function VideoPlayer({
               console.warn(
                 `HLS network error, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
               );
-              setTimeout(() => hls.startLoad(), 1000 * retryCountRef.current);
+              setTimeout(
+                () => hls.startLoad(),
+                1000 * retryCountRef.current
+              );
             } else {
               console.error("HLS network error: max retries reached");
               setState((s) => ({
@@ -179,10 +281,63 @@ export function VideoPlayer({
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Safari native HLS
       video.src = streamUrl;
-      video.addEventListener("loadedmetadata", () => {
-        setState((s) => ({ ...s, loading: false }));
-      });
+      video.addEventListener(
+        "loadedmetadata",
+        () => {
+          setState((s) => ({ ...s, loading: false }));
+          if (restoreTime !== undefined) {
+            video.currentTime = restoreTime;
+          }
+        },
+        { once: true }
+      );
     }
+
+    // Load thumbnails for seek preview
+    const thumbsUrl = getThumbsUrl(thumbnailPath);
+    if (thumbsUrl) {
+      const baseUrl = thumbsUrl.substring(0, thumbsUrl.lastIndexOf("/"));
+      fetch(thumbsUrl)
+        .then((res) => (res.ok ? res.text() : Promise.reject()))
+        .then((vttText) => setThumbCues(parseVttThumbs(vttText, baseUrl)))
+        .catch(() => setThumbCues([]));
+    } else {
+      setThumbCues([]);
+    }
+
+    // Load subtitles: fetch all VTT segments, concatenate, add as <track>
+    const subtitleUrl = getSubtitleUrl(subtitleLinks, quality);
+    if (!subtitleUrl) return;
+    loadSubtitleVtt(subtitleUrl).then((blobUrl) => {
+      if (!blobUrl) return;
+      subtitleBlobUrlRef.current = blobUrl;
+      const track = document.createElement("track");
+      track.kind = "subtitles";
+      track.label = "English";
+      track.srclang = "en";
+      track.src = blobUrl;
+      track.default = true;
+      video.appendChild(track);
+      // Apply current subtitle state
+      if (track.track) {
+        track.track.mode = state.subtitlesEnabled ? "showing" : "hidden";
+      }
+    });
+  };
+
+  // Initialize HLS
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || Object.keys(streamLinks).length === 0) return;
+
+    const prefs = loadPreferences();
+    const defaultQuality =
+      prefs.preferredQuality !== "auto" &&
+      allowedQualities.includes(prefs.preferredQuality)
+        ? prefs.preferredQuality
+        : allowedQualities[allowedQualities.length - 1] ?? 720;
+
+    setupHlsRef.current(video, defaultQuality as Quality);
 
     // Apply preferences
     video.volume = prefs.volume;
@@ -200,8 +355,17 @@ export function VideoPlayer({
       hlsRef.current?.destroy();
       hlsRef.current = null;
       retryCountRef.current = 0;
+      if (subtitleBlobUrlRef.current) {
+        URL.revokeObjectURL(subtitleBlobUrlRef.current);
+        subtitleBlobUrlRef.current = null;
+      }
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = undefined;
+      }
     };
-  }, [streamPath, allowedQualities]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(streamLinks)]);
 
   // Video event listeners
   useEffect(() => {
@@ -215,9 +379,8 @@ export function VideoPlayer({
         duration: video.duration || 0,
       }));
 
-      // Track play time for view counting
       if (!video.paused) {
-        playTimeRef.current += 0.25; // approximate timeupdate interval
+        playTimeRef.current += 0.25;
         if (playTimeRef.current >= 30 && !viewCountedRef.current) {
           viewCountedRef.current = true;
           onView?.();
@@ -323,6 +486,9 @@ export function VideoPlayer({
           savePreferences({ isMuted: video.muted });
           showToast(video.muted ? "Muted" : "Unmuted");
           break;
+        case "c":
+          toggleSubtitles();
+          break;
       }
 
       resetHideTimer();
@@ -351,6 +517,22 @@ export function VideoPlayer({
     video.paused ? video.play() : video.pause();
   }, []);
 
+  // YouTube-style click handling: delay single-click to distinguish from double-click
+  const handleVideoClick = useCallback(() => {
+    if (clickTimerRef.current) {
+      // Second click arrived within window → double-click → fullscreen
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = undefined;
+      toggleFullscreen();
+    } else {
+      // First click → wait to see if a second click follows
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = undefined;
+        togglePlay();
+      }, 250);
+    }
+  }, [toggleFullscreen, togglePlay]);
+
   const seek = useCallback((time: number) => {
     const video = videoRef.current;
     if (!video) return;
@@ -374,6 +556,36 @@ export function VideoPlayer({
     savePreferences({ isMuted: video.muted });
   }, []);
 
+  const toggleSubtitles = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const tracks = video.textTracks;
+    if (tracks.length === 0) return;
+
+    const newEnabled = !state.subtitlesEnabled;
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].mode = newEnabled ? "showing" : "hidden";
+    }
+    setState((s) => ({ ...s, subtitlesEnabled: newEnabled }));
+    showToast(newEnabled ? "Subtitles ON" : "Subtitles OFF");
+  }, [state.subtitlesEnabled, showToast]);
+
+  const retryLoad = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    setState((s) => ({ ...s, loading: true, error: null }));
+
+    const prefs = loadPreferences();
+    const defaultQuality =
+      prefs.preferredQuality !== "auto" &&
+      allowedQualities.includes(prefs.preferredQuality)
+        ? prefs.preferredQuality
+        : allowedQualities[allowedQualities.length - 1] ?? 720;
+
+    setupHlsRef.current(video, defaultQuality as Quality);
+  }, [allowedQualities]);
+
   const changeQuality = useCallback(
     (quality: Quality) => {
       const video = videoRef.current;
@@ -382,45 +594,23 @@ export function VideoPlayer({
       const currentTime = video.currentTime;
       const wasPlaying = !video.paused;
 
-      hlsRef.current?.destroy();
-      retryCountRef.current = 0;
+      setupHlsRef.current(video, quality, currentTime);
 
-      const streamUrl = getStreamUrl(streamPath, quality);
-      const hls = new Hls({ startLevel: -1 });
-      hlsRef.current = hls;
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.currentTime = currentTime;
-        if (wasPlaying) video.play();
-        setState((s) => ({ ...s, error: null }));
-      });
-
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            retryCountRef.current++;
-            if (retryCountRef.current <= MAX_RETRIES) {
-              setTimeout(() => hls.startLoad(), 1000 * retryCountRef.current);
-            } else {
-              setState((s) => ({
-                ...s,
-                loading: false,
-                error: "Video unavailable. The stream could not be loaded.",
-              }));
-            }
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            hls.recoverMediaError();
-          }
-        }
-      });
+      // Resume playback after quality switch
+      const hls = hlsRef.current;
+      if (hls) {
+        const onParsed = () => {
+          if (wasPlaying) video.play();
+          hls.off(Hls.Events.MANIFEST_PARSED, onParsed);
+        };
+        hls.on(Hls.Events.MANIFEST_PARSED, onParsed);
+      }
 
       setState((s) => ({ ...s, quality, error: null }));
       savePreferences({ preferredQuality: quality });
       showToast(`Quality: ${quality}p`);
     },
-    [streamPath, showToast]
+    [showToast]
   );
 
   const changeSpeed = useCallback(
@@ -451,7 +641,7 @@ export function VideoPlayer({
       <video
         ref={videoRef}
         className="h-full w-full cursor-pointer"
-        onClick={togglePlay}
+        onClick={handleVideoClick}
         playsInline
       />
 
@@ -485,7 +675,7 @@ export function VideoPlayer({
           onClick={togglePlay}
           className="absolute inset-0 flex items-center justify-center"
         >
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
             <svg viewBox="0 0 24 24" className="ml-1 h-8 w-8 fill-white">
               <path d="M8 5v14l11-7z" />
             </svg>
@@ -504,6 +694,7 @@ export function VideoPlayer({
           state={state}
           allowedQualities={allowedQualities}
           availableQualities={availableQualities}
+          thumbCues={thumbCues}
           onTogglePlay={togglePlay}
           onSeek={seek}
           onSetVolume={setVolume}
@@ -511,6 +702,7 @@ export function VideoPlayer({
           onChangeQuality={changeQuality}
           onChangeSpeed={changeSpeed}
           onToggleFullscreen={toggleFullscreen}
+          onToggleSubtitles={toggleSubtitles}
         />
       </div>
 

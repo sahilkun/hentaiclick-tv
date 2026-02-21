@@ -134,3 +134,12 @@ body {
 .slide-in-from-right {
   animation: slide-in-from-right 0.3s ease-out;
 }
+
+/* Video subtitle cue styling — remove default black background */
+video::cue {
+  background: transparent;
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 0.9),
+    0 0 8px rgba(0, 0, 0, 0.7),
+    1px 1px 2px rgba(0, 0, 0, 0.8);
+}

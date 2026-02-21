@@ -59,10 +59,10 @@ export function EpisodeForm({
     studio_id: initialStudioId ?? episode?.studio_id ?? "",
     season_no: episode?.season_no ?? 1,
     episode_no: episode?.episode_no ?? 1,
-    stream_path: episode?.stream_path ?? "",
-    download_path: episode?.download_path ?? "",
-    available_qualities: episode?.available_qualities ?? [720, 1080],
-    download_qualities: episode?.download_qualities ?? [1080, 2160],
+    stream_links: (episode?.stream_links ?? {}) as Record<string, string>,
+    download_links: (episode?.download_links ?? {}) as Record<string, string>,
+    subtitle_links: (episode?.subtitle_links ?? {}) as Record<string, string>,
+    thumbnail_path: episode?.thumbnail_path ?? "",
     poster_url: episode?.poster_url ?? "",
     thumbnail_url: episode?.thumbnail_url ?? "",
     gallery_urls: episode?.gallery_urls?.join("\n") ?? "",
@@ -115,23 +115,9 @@ export function EpisodeForm({
     });
   };
 
-  const handleQualityToggle = (quality: number) => {
-    setForm({
-      ...form,
-      available_qualities: form.available_qualities.includes(quality)
-        ? form.available_qualities.filter((q) => q !== quality)
-        : [...form.available_qualities, quality].sort((a, b) => a - b),
-    });
-  };
-
-  const handleDownloadQualityToggle = (quality: number) => {
-    setForm({
-      ...form,
-      download_qualities: form.download_qualities.includes(quality)
-        ? form.download_qualities.filter((q) => q !== quality)
-        : [...form.download_qualities, quality].sort((a, b) => a - b),
-    });
-  };
+  /** Strip empty-value keys before saving to DB */
+  const cleanLinks = (obj: Record<string, string>) =>
+    Object.fromEntries(Object.entries(obj).filter(([, v]) => v.trim() !== ""));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,10 +132,10 @@ export function EpisodeForm({
       studio_id: form.studio_id || null,
       season_no: form.season_no,
       episode_no: form.episode_no,
-      stream_path: form.stream_path,
-      download_path: form.download_path,
-      available_qualities: form.available_qualities,
-      download_qualities: form.download_qualities,
+      stream_links: cleanLinks(form.stream_links),
+      download_links: cleanLinks(form.download_links),
+      subtitle_links: cleanLinks(form.subtitle_links),
+      thumbnail_path: form.thumbnail_path.trim(),
       gallery_urls: form.gallery_urls
         .split("\n")
         .map((u) => u.trim())
@@ -418,119 +404,128 @@ export function EpisodeForm({
         </div>
       </div>
 
-      {/* CDN Paths */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-bold">CDN Paths</h3>
+      {/* CDN Links (per quality) */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold">CDN Links</h3>
+
+        {/* Thumbnail Path */}
         <div>
           <label className="mb-1 block text-sm font-medium">
-            Stream Path
+            Thumbnail Path (seek preview)
           </label>
           <div className="flex items-center gap-2">
             <span className="shrink-0 text-xs text-muted-foreground">
               {CDN_STREAM_BASE}/
             </span>
             <Input
-              value={form.stream_path}
+              value={form.thumbnail_path}
               onChange={(e) =>
-                setForm({ ...form, stream_path: e.target.value })
+                setForm({ ...form, thumbnail_path: e.target.value })
               }
-              required
-              placeholder="natsu-no-hako-01"
+              placeholder="natsu-no-hako-01/720/thumbs/thumbs.vtt"
             />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Folder on CDN. Quality subfolder is appended automatically: /720/index.m3u8
-          </p>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium">
-            Download Path
-          </label>
-          <div className="flex items-center gap-2">
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {CDN_DOWNLOAD_BASE}/
-            </span>
-            <Input
-              value={form.download_path}
-              onChange={(e) =>
-                setForm({ ...form, download_path: e.target.value })
-              }
-              placeholder="natsu-to-haku-01/Natsu-to-Hako-01"
-            />
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            folder/filename without quality suffix. Quality is appended: -1080p.mkv
-          </p>
         </div>
 
-        {/* Preview URLs */}
-        {(form.stream_path || form.download_path) && (
-          <div className="space-y-1 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-            {form.stream_path && (
-              <>
-                <p>
-                  Stream: {CDN_STREAM_BASE}/{form.stream_path}/1080/index.m3u8
-                </p>
-                <p>
-                  Subtitle: {CDN_STREAM_BASE}/{form.stream_path}/1080/index_vtt.m3u8
-                </p>
-                <p>
-                  Thumbs: {CDN_STREAM_BASE}/{form.stream_path}/720/thumbs/thumbs.vtt
-                </p>
-              </>
-            )}
-            {form.download_path && (
-              <p>
-                Download: {CDN_DOWNLOAD_BASE}/{form.download_path}-1080p.mkv
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+        {/* Per-quality link groups */}
+        {QUALITY_LEVELS.filter((q) => q !== 480).map((q) => (
+          <div
+            key={q}
+            className="space-y-2 rounded-lg border border-border p-3"
+          >
+            <h4 className="text-xs font-bold text-muted-foreground">
+              {q === 2160 ? "4K (2160p)" : `${q}p`}
+            </h4>
 
-      {/* Qualities */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm font-medium">
-            Stream Qualities
-          </label>
-          <div className="flex gap-3">
-            {QUALITY_LEVELS.map((q) => (
-              <label
-                key={q}
-                className="flex items-center gap-1.5 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={form.available_qualities.includes(q)}
-                  onChange={() => handleQualityToggle(q)}
-                  className="accent-primary"
+            {/* Stream link */}
+            <div>
+              <label className="mb-1 block text-xs font-medium">Stream</label>
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {CDN_STREAM_BASE}/
+                </span>
+                <Input
+                  value={form.stream_links[String(q)] ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      stream_links: {
+                        ...form.stream_links,
+                        [String(q)]: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder={`path/${q}/index.m3u8`}
                 />
-                {q}p
+              </div>
+            </div>
+
+            {/* Subtitle link */}
+            <div>
+              <label className="mb-1 block text-xs font-medium">
+                Subtitle
               </label>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium">
-            Download Qualities
-          </label>
-          <div className="flex gap-3">
-            {QUALITY_LEVELS.map((q) => (
-              <label
-                key={q}
-                className="flex items-center gap-1.5 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={form.download_qualities.includes(q)}
-                  onChange={() => handleDownloadQualityToggle(q)}
-                  className="accent-primary"
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {CDN_STREAM_BASE}/
+                </span>
+                <Input
+                  value={form.subtitle_links[String(q)] ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      subtitle_links: {
+                        ...form.subtitle_links,
+                        [String(q)]: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder={`path/${q}/index_vtt.m3u8`}
                 />
-                {q}p
+              </div>
+            </div>
+
+            {/* Download link */}
+            <div>
+              <label className="mb-1 block text-xs font-medium">
+                Download
               </label>
-            ))}
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {CDN_DOWNLOAD_BASE}/
+                </span>
+                <Input
+                  value={form.download_links[String(q)] ?? ""}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      download_links: {
+                        ...form.download_links,
+                        [String(q)]: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder={`folder/file-${q}p.mkv`}
+                />
+              </div>
+            </div>
           </div>
+        ))}
+
+        {/* Auto-derived qualities summary */}
+        <div className="text-xs text-muted-foreground">
+          Stream:{" "}
+          {QUALITY_LEVELS.filter(
+            (q) => form.stream_links[String(q)]?.trim()
+          )
+            .map((q) => `${q}p`)
+            .join(", ") || "none"}{" "}
+          &middot; Download:{" "}
+          {QUALITY_LEVELS.filter(
+            (q) => form.download_links[String(q)]?.trim()
+          )
+            .map((q) => `${q}p`)
+            .join(", ") || "none"}
         </div>
       </div>
 

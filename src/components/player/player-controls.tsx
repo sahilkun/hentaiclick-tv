@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   Play,
   Pause,
@@ -9,16 +9,19 @@ import {
   Maximize,
   Minimize,
   Settings,
+  Subtitles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/utils";
 import { QUALITY_LABELS, PLAYBACK_SPEEDS, type Quality } from "@/lib/constants";
 import type { PlayerState } from "@/types/player";
+import type { ThumbCue } from "./video-player";
 
 interface PlayerControlsProps {
   state: PlayerState;
   allowedQualities: Quality[];
   availableQualities: Quality[];
+  thumbCues: ThumbCue[];
   onTogglePlay: () => void;
   onSeek: (time: number) => void;
   onSetVolume: (vol: number) => void;
@@ -26,12 +29,14 @@ interface PlayerControlsProps {
   onChangeQuality: (q: Quality) => void;
   onChangeSpeed: (s: number) => void;
   onToggleFullscreen: () => void;
+  onToggleSubtitles: () => void;
 }
 
 export function PlayerControls({
   state,
   allowedQualities,
   availableQualities,
+  thumbCues,
   onTogglePlay,
   onSeek,
   onSetVolume,
@@ -39,11 +44,15 @@ export function PlayerControls({
   onChangeQuality,
   onChangeSpeed,
   onToggleFullscreen,
+  onToggleSubtitles,
 }: PlayerControlsProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsPanel, setSettingsPanel] = useState<
     "main" | "quality" | "speed"
   >("main");
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverX, setHoverX] = useState(0);
+  const seekBarRef = useRef<HTMLDivElement>(null);
 
   const progress =
     state.duration > 0 ? (state.currentTime / state.duration) * 100 : 0;
@@ -56,24 +65,90 @@ export function PlayerControls({
     onSeek(percent * state.duration);
   };
 
+  const handleSeekBarHover = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      const time = percent * state.duration;
+      setHoverTime(time);
+      setHoverX(e.clientX - rect.left);
+    },
+    [state.duration]
+  );
+
+  const handleSeekBarLeave = useCallback(() => {
+    setHoverTime(null);
+  }, []);
+
+  // Find thumbnail for current hover time
+  const hoverThumb =
+    hoverTime !== null
+      ? thumbCues.find((c) => hoverTime >= c.start && hoverTime < c.end)
+      : null;
+
   return (
     <div className="bg-gradient-to-t from-black/90 to-transparent px-4 pb-3 pt-8">
       {/* Seek bar */}
-      <div
-        className="group/seek mb-2 h-1 cursor-pointer rounded-full bg-white/30 transition-all hover:h-2"
-        onClick={handleSeekBarClick}
-      >
-        {/* Buffered */}
+      <div className="relative mb-2">
+        {/* Thumbnail preview tooltip */}
+        {hoverTime !== null && (
+          <div
+            className="absolute bottom-4 -translate-x-1/2 pointer-events-none"
+            style={{ left: hoverX }}
+          >
+            {hoverThumb ? (
+              <div className="mb-1 overflow-hidden rounded border border-white/20 bg-black">
+                {hoverThumb.x === 0 && hoverThumb.y === 0 ? (
+                  /* Individual thumbnail image */
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={hoverThumb.url}
+                    alt=""
+                    style={{ width: hoverThumb.w, height: hoverThumb.h }}
+                    className="object-cover"
+                  />
+                ) : (
+                  /* Sprite sheet thumbnail */
+                  <div
+                    style={{
+                      width: hoverThumb.w,
+                      height: hoverThumb.h,
+                      backgroundImage: `url(${hoverThumb.url})`,
+                      backgroundPosition: `-${hoverThumb.x}px -${hoverThumb.y}px`,
+                      backgroundSize: "auto",
+                    }}
+                  />
+                )}
+              </div>
+            ) : null}
+            <div className="text-center text-xs text-white bg-black/80 rounded px-1.5 py-0.5">
+              {formatDuration(hoverTime)}
+            </div>
+          </div>
+        )}
+
         <div
-          className="absolute h-full rounded-full bg-white/20"
-          style={{ width: `${bufferedProgress}%` }}
-        />
-        {/* Progress */}
-        <div
-          className="relative h-full rounded-full bg-primary"
-          style={{ width: `${progress}%` }}
+          ref={seekBarRef}
+          className="group/seek relative cursor-pointer pb-[4px] pt-4"
+          onClick={handleSeekBarClick}
+          onMouseMove={handleSeekBarHover}
+          onMouseLeave={handleSeekBarLeave}
         >
-          <div className="absolute -right-1.5 -top-1 h-3 w-3 rounded-full bg-primary opacity-0 transition-opacity group-hover/seek:opacity-100" />
+          {/* Visual seek bar (thin line at bottom of hit area) */}
+          <div className="relative h-1 rounded-full bg-white/30 transition-all group-hover/seek:h-1.5">
+            {/* Buffered */}
+            <div
+              className="absolute h-full rounded-full bg-white/20"
+              style={{ width: `${bufferedProgress}%` }}
+            />
+            {/* Progress */}
+            <div
+              className="relative h-full rounded-full bg-primary"
+              style={{ width: `${progress}%` }}
+            >
+              <div className="absolute -right-1.5 -top-1 h-3 w-3 rounded-full bg-primary opacity-0 transition-opacity group-hover/seek:opacity-100" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -122,6 +197,19 @@ export function PlayerControls({
             className="h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-primary"
           />
         </div>
+
+        {/* Subtitles toggle */}
+        <button
+          type="button"
+          onClick={onToggleSubtitles}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center hover:text-primary",
+            state.subtitlesEnabled ? "text-primary" : "text-white"
+          )}
+          title="Subtitles (C)"
+        >
+          <Subtitles className="h-5 w-5" />
+        </button>
 
         {/* Settings */}
         <div className="relative">

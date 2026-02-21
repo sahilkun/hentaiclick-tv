@@ -5,12 +5,17 @@ import { Download, Lock } from "lucide-react";
 import { Modal, ModalHeader, ModalTitle, ModalClose, ModalBody } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { getDownloadableQualities, needsTurnstile } from "@/lib/access";
+import { deriveDownloadQualities, getDownloadUrl } from "@/lib/cdn";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
 import type { UserContext, EpisodeWithRelations } from "@/types";
 
-function getProxyDownloadUrl(downloadPath: string, quality: Quality): string {
-  const filePath = `${downloadPath}-${quality}p.mkv`;
-  return `/api/download?path=${encodeURIComponent(filePath)}`;
+function getProxyDownloadUrl(
+  downloadLinks: Record<string, string>,
+  quality: Quality
+): string | null {
+  const fullUrl = getDownloadUrl(downloadLinks, quality);
+  if (!fullUrl) return null;
+  return `/api/download?url=${encodeURIComponent(fullUrl)}`;
 }
 
 interface DownloadModalProps {
@@ -28,8 +33,9 @@ export function DownloadModal({
 }: DownloadModalProps) {
   const [turnstileVerified, setTurnstileVerified] = useState(false);
 
+  const availableDownloadQualities = deriveDownloadQualities(episode.download_links);
   const downloadQualities = getDownloadableQualities(
-    episode.download_qualities,
+    availableDownloadQualities,
     userContext,
     episode.upload_date
   );
@@ -76,9 +82,9 @@ export function DownloadModal({
               ) : (
                 <a
                   href={getProxyDownloadUrl(
-                    episode.download_path,
+                    episode.download_links,
                     quality
-                  )}
+                  ) ?? "#"}
                 >
                   <Button size="sm">Download</Button>
                 </a>

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Eye, Heart, MessageCircle } from "lucide-react";
 import { cn, formatNumber, getRatingColor, getRatingBgColor } from "@/lib/utils";
+import { deriveStreamQualities } from "@/lib/cdn";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
 import type { EpisodeWithRelations } from "@/types";
 
@@ -45,8 +46,8 @@ export function EpisodeCard({ episode, className }: EpisodeCardProps) {
     };
   }, []);
 
-  // Build quality badge text (e.g. "4K | FHD 48fps")
-  const qualityBadge = getQualityBadgeText(episode.available_qualities);
+  // Build quality badge text (e.g. "4K | FHD")
+  const qualityBadge = getQualityBadgeText(deriveStreamQualities(episode.stream_links));
 
   // Rating display
   const ratingDisplay =

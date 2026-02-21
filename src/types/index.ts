@@ -10,10 +10,10 @@ export interface EpisodeWithRelations {
   title: string;
   slug: string;
   description: string;
-  stream_path: string;
-  download_path: string;
-  available_qualities: number[];
-  download_qualities: number[];
+  stream_links: Record<string, string>;
+  download_links: Record<string, string>;
+  subtitle_links: Record<string, string>;
+  thumbnail_path: string;
   gallery_urls: string[];
   poster_url: string | null;
   thumbnail_url: string | null;

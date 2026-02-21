@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn, formatNumber, getRatingColor, getRatingBgColor } from "@/lib/utils";
 import { getStreamableQualities } from "@/lib/access";
+import { deriveStreamQualities, deriveDownloadQualities } from "@/lib/cdn";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
 import { useAuth } from "@/hooks/use-auth";
 import type { EpisodeWithRelations, UserContext } from "@/types";
@@ -47,8 +48,9 @@ export function WatchPageClient({
     isPremium: user?.is_premium ?? false,
   };
 
+  const streamQualities = deriveStreamQualities(episode.stream_links);
   const allowedQualities = getStreamableQualities(
-    episode.available_qualities,
+    streamQualities,
     userContext,
     episode.upload_date
   );
@@ -59,9 +61,9 @@ export function WatchPageClient({
     } catch {}
   }, [episode.id]);
 
-  const qualityBadge = episode.available_qualities
+  const qualityBadge = streamQualities
     .sort((a, b) => b - a)
-    .map((q) => QUALITY_LABELS[q as Quality] ?? `${q}p`)
+    .map((q) => QUALITY_LABELS[q] ?? `${q}p`)
     .join(" | ");
 
   // Genre color mapping
@@ -76,8 +78,10 @@ export function WatchPageClient({
     <div>
       {/* Player */}
       <VideoPlayer
-        streamPath={episode.stream_path}
-        availableQualities={episode.available_qualities as Quality[]}
+        streamLinks={episode.stream_links}
+        subtitleLinks={episode.subtitle_links}
+        thumbnailPath={episode.thumbnail_path}
+        availableQualities={streamQualities}
         allowedQualities={allowedQualities}
         onView={handleView}
       />
