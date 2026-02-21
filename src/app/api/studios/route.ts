@@ -5,16 +5,16 @@ export async function GET() {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from("genres")
-      .select("id, name, slug, is_subgenre, parent_genre_id, episode_genres(count)")
+      .from("studios")
+      .select("id, name, slug, episodes(count)")
       .order("name", { ascending: true });
 
     if (error) throw error;
 
     // Flatten the embedded count
-    const result = (data ?? []).map(({ episode_genres, ...rest }: any) => ({
+    const result = (data ?? []).map(({ episodes, ...rest }: any) => ({
       ...rest,
-      episode_count: episode_genres?.[0]?.count ?? 0,
+      episode_count: episodes?.[0]?.count ?? 0,
     }));
 
     return NextResponse.json(result);

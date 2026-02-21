@@ -91,6 +91,7 @@ export async function getEpisodeBySlug(
       series:series_id (
         title,
         slug,
+        studio_id,
         studio:studio_id (
           name,
           slug
@@ -146,6 +147,73 @@ export async function getEpisodesBySeries(
 
   const { data } = await query;
   return (data ?? []) as unknown as EpisodeWithRelations[];
+}
+
+export async function getEpisodesByStudio(
+  studioId: string,
+  excludeEpisodeId?: string,
+  limit: number = 10
+): Promise<EpisodeWithRelations[]> {
+  const supabase = await createClient();
+
+  // Direct studio_id on episodes
+  let query = supabase
+    .from("episodes")
+    .select(
+      `
+      *,
+      series:series_id (
+        title,
+        slug
+      )
+    `
+    )
+    .eq("studio_id", studioId)
+    .eq("status", "published")
+    .order("views_7d", { ascending: false })
+    .limit(limit);
+
+  if (excludeEpisodeId) {
+    query = query.neq("id", excludeEpisodeId);
+  }
+
+  const { data } = await query;
+
+  if (data && data.length > 0) {
+    return data as unknown as EpisodeWithRelations[];
+  }
+
+  // Fallback: find episodes whose series belongs to this studio
+  const { data: seriesData } = await supabase
+    .from("series")
+    .select("id")
+    .eq("studio_id", studioId);
+
+  if (!seriesData || seriesData.length === 0) return [];
+
+  const seriesIds = seriesData.map((s) => s.id);
+  let fallbackQuery = supabase
+    .from("episodes")
+    .select(
+      `
+      *,
+      series:series_id (
+        title,
+        slug
+      )
+    `
+    )
+    .in("series_id", seriesIds)
+    .eq("status", "published")
+    .order("views_7d", { ascending: false })
+    .limit(limit);
+
+  if (excludeEpisodeId) {
+    fallbackQuery = fallbackQuery.neq("id", excludeEpisodeId);
+  }
+
+  const { data: fallbackData } = await fallbackQuery;
+  return (fallbackData ?? []) as unknown as EpisodeWithRelations[];
 }
 
 export async function getGenres() {

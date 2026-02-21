@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, ChevronDown, X, Ban } from "lucide-react";
+import { Search, ChevronDown, X, Ban, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/select";
@@ -20,6 +20,14 @@ interface GenreItem {
   slug: string;
   is_subgenre: boolean;
   parent_genre_id: string | null;
+  episode_count: number;
+}
+
+interface StudioItem {
+  id: string;
+  name: string;
+  slug: string;
+  episode_count: number;
 }
 
 interface GenreGroup {
@@ -64,6 +72,9 @@ export default function SearchPage() {
   const [blacklistedGenres, setBlacklistedGenres] = useState<string[]>(
     searchParams.get("blacklist")?.split(",").filter(Boolean) ?? []
   );
+  const [selectedStudios, setSelectedStudios] = useState<string[]>(
+    searchParams.get("studios")?.split(",").filter(Boolean) ?? []
+  );
   const [page, setPage] = useState(
     parseInt(searchParams.get("page") ?? "1")
   );
@@ -82,8 +93,19 @@ export default function SearchPage() {
     (searchParams.get("blacklist")?.split(",").filter(Boolean) ?? []).length > 0
   );
 
-  // Fetch genres on mount
+  // Studios state
+  const [allStudios, setAllStudios] = useState<StudioItem[]>([]);
+  const [showStudios, setShowStudios] = useState(
+    (searchParams.get("studios")?.split(",").filter(Boolean) ?? []).length > 0
+  );
+
+  // Fetch genres and studios on mount
   useEffect(() => {
+    fetch("/api/studios")
+      .then((r) => r.json())
+      .then((studios: StudioItem[]) => setAllStudios(studios))
+      .catch(() => {});
+
     fetch("/api/genres")
       .then((r) => r.json())
       .then((genres: GenreItem[]) => {
@@ -147,6 +169,20 @@ export default function SearchPage() {
     setPage(1);
   };
 
+  const toggleStudio = (slug: string) => {
+    setSelectedStudios((prev) =>
+      prev.includes(slug)
+        ? prev.filter((s) => s !== slug)
+        : [...prev, slug]
+    );
+    setPage(1);
+  };
+
+  const clearStudios = () => {
+    setSelectedStudios([]);
+    setPage(1);
+  };
+
   const fetchResults = useCallback(async () => {
     setLoading(true);
 
@@ -160,6 +196,8 @@ export default function SearchPage() {
       params.set("genres", selectedGenres.join(","));
     if (blacklistedGenres.length > 0)
       params.set("blacklist", blacklistedGenres.join(","));
+    if (selectedStudios.length > 0)
+      params.set("studios", selectedStudios.join(","));
 
     try {
       const res = await fetch(`/api/search?${params}`);
@@ -206,7 +244,7 @@ export default function SearchPage() {
     } catch {}
 
     setLoading(false);
-  }, [query, sort, minRating, selectedGenres, blacklistedGenres, page]);
+  }, [query, sort, minRating, selectedGenres, blacklistedGenres, selectedStudios, page]);
 
   useEffect(() => {
     fetchResults();
@@ -222,11 +260,13 @@ export default function SearchPage() {
       params.set("genres", selectedGenres.join(","));
     if (blacklistedGenres.length > 0)
       params.set("blacklist", blacklistedGenres.join(","));
+    if (selectedStudios.length > 0)
+      params.set("studios", selectedStudios.join(","));
     if (page > 1) params.set("page", String(page));
 
     const url = `/search${params.toString() ? `?${params}` : ""}`;
     router.replace(url, { scroll: false });
-  }, [query, sort, minRating, selectedGenres, blacklistedGenres, page, router]);
+  }, [query, sort, minRating, selectedGenres, blacklistedGenres, selectedStudios, page, router]);
 
   const totalPages = Math.ceil(totalHits / SEARCH_PAGE_SIZE);
 
@@ -339,6 +379,38 @@ export default function SearchPage() {
           />
         </button>
 
+        <button
+          type="button"
+          onClick={() => setShowStudios(!showStudios)}
+          className={cn(
+            "flex h-10 items-center justify-between gap-2 rounded-md border px-3 text-sm transition-colors",
+            showStudios
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-input bg-background"
+          )}
+        >
+          <Building2 className="h-3.5 w-3.5" />
+          <span>Studios</span>
+          {selectedStudios.length > 0 && (
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-xs font-medium",
+                showStudios
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-primary text-primary-foreground"
+              )}
+            >
+              {selectedStudios.length}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 opacity-50 transition-transform",
+              showStudios && "rotate-180"
+            )}
+          />
+        </button>
+
         {selectedGenres.length > 0 && (
           <button
             type="button"
@@ -357,6 +429,16 @@ export default function SearchPage() {
           >
             <X className="h-3.5 w-3.5" />
             Clear blacklist
+          </button>
+        )}
+        {selectedStudios.length > 0 && (
+          <button
+            type="button"
+            onClick={clearStudios}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear studios
           </button>
         )}
       </div>
@@ -495,6 +577,62 @@ export default function SearchPage() {
         </div>
       )}
 
+      {/* Selected studio tags (when panel is closed) */}
+      {selectedStudios.length > 0 && !showStudios && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {selectedStudios.map((slug) => {
+            const studio = allStudios.find((s) => s.slug === slug);
+            return (
+              <button
+                key={slug}
+                type="button"
+                onClick={() => toggleStudio(slug)}
+                className="flex items-center gap-1 rounded-full bg-primary/20 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/30"
+              >
+                <Building2 className="h-3 w-3" />
+                {studio?.name ?? slug}
+                <X className="h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Studio filter panel */}
+      {showStudios && (
+        <div className="mb-6 rounded-lg border border-border bg-card p-4">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">
+            Studios
+          </h3>
+          {allStudios.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Loading studios...</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {allStudios.map((studio) => (
+                <button
+                  key={studio.slug}
+                  type="button"
+                  onClick={() => toggleStudio(studio.slug)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-sm font-medium transition-colors",
+                    selectedStudios.includes(studio.slug)
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-foreground/70 hover:bg-accent hover:text-foreground"
+                  )}
+                >
+                  {studio.name}
+                  {studio.episode_count > 0 && (
+                    <span className="ml-1 opacity-60">
+                      ({studio.episode_count})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Results count */}
       <p className="mb-4 text-sm text-muted-foreground">
         Showing {Math.min((page - 1) * SEARCH_PAGE_SIZE + 1, totalHits)} to{" "}
@@ -577,18 +715,25 @@ function GenreTag({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+        "rounded-full px-3 py-1 text-sm font-medium transition-colors",
         disabled && "opacity-40 cursor-not-allowed",
         variant === "blacklist"
           ? selected
             ? "bg-destructive text-destructive-foreground"
-            : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+            : "bg-muted text-foreground/70 hover:bg-accent hover:text-foreground"
           : selected
             ? "bg-primary text-primary-foreground"
-            : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+            : "bg-muted text-foreground/70 hover:bg-accent hover:text-foreground"
       )}
     >
       {genre.name}
+      {genre.episode_count > 0 && (
+        <span className={cn(
+          "ml-1 opacity-60",
+        )}>
+          ({genre.episode_count})
+        </span>
+      )}
     </button>
   );
 }

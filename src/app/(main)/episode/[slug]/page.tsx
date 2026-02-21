@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getEpisodeBySlug, getEpisodesBySeries, getEpisodes } from "@/lib/queries/episodes";
+import { getEpisodeBySlug, getEpisodesBySeries, getEpisodesByStudio, getEpisodes } from "@/lib/queries/episodes";
 import { SITE_NAME } from "@/lib/constants";
-import { formatDuration } from "@/lib/utils";
 import { WatchPageClient } from "./watch-page-client";
 
 interface Props {
@@ -71,11 +70,19 @@ export default async function EpisodeWatchPage({ params }: Props) {
   const episode = await getEpisodeBySlug(slug);
   if (!episode) notFound();
 
-  const [seriesEpisodes, popularWeekly] = await Promise.all([
+  // Resolve studio ID: direct on episode, or via series
+  const resolvedStudioId = episode.studio_id
+    ?? (episode.series as any)?.studio_id
+    ?? null;
+
+  const [seriesEpisodes, studioEpisodes, popularWeekly] = await Promise.all([
     episode.series_id
       ? getEpisodesBySeries(episode.series_id)
       : Promise.resolve([]),
-    getEpisodes("popular_weekly", 6),
+    resolvedStudioId
+      ? getEpisodesByStudio(resolvedStudioId, episode.id, 8)
+      : Promise.resolve([]),
+    getEpisodes("popular_weekly", 8),
   ]);
 
   const jsonLd = getVideoJsonLd(episode);
@@ -89,6 +96,7 @@ export default async function EpisodeWatchPage({ params }: Props) {
       <WatchPageClient
         episode={episode}
         seriesEpisodes={seriesEpisodes}
+        studioEpisodes={studioEpisodes}
         popularWeekly={popularWeekly}
       />
     </>
