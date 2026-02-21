@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Eye, Heart, MessageCircle } from "lucide-react";
-import { cn, formatNumber, getRatingColor, getRatingBgColor } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
+import { CircularRating } from "@/components/ui/circular-rating";
 import { deriveStreamQualities } from "@/lib/cdn";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
 import type { EpisodeWithRelations } from "@/types";
@@ -49,20 +50,6 @@ export function EpisodeCard({ episode, className }: EpisodeCardProps) {
   // Build quality badge text (e.g. "4K | FHD")
   const qualityBadge = getQualityBadgeText(deriveStreamQualities(episode.stream_links));
 
-  // Rating display
-  const ratingDisplay =
-    episode.rating_count > 0
-      ? episode.rating_avg.toFixed(1)
-      : "N/A";
-  const ratingColor =
-    episode.rating_count > 0
-      ? getRatingColor(episode.rating_avg)
-      : "text-muted-foreground";
-  const ratingBg =
-    episode.rating_count > 0
-      ? getRatingBgColor(episode.rating_avg)
-      : "bg-muted";
-
   const thumbnailSrc =
     hovering && hasGallery
       ? episode.gallery_urls[galleryIndex]
@@ -94,14 +81,13 @@ export function EpisodeCard({ episode, className }: EpisodeCardProps) {
         )}
 
         {/* Rating badge (top-left) */}
-        <div
-          className={cn(
-            "absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-xs font-bold text-white",
-            ratingBg
-          )}
-        >
-          {ratingDisplay}
-        </div>
+        <CircularRating
+          rating={episode.rating_avg}
+          count={episode.rating_count}
+          size={38}
+          strokeWidth={3}
+          className="absolute left-2 top-2"
+        />
 
         {/* Quality badge (top-right) */}
         {qualityBadge && (

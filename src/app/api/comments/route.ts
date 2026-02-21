@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     .select(
       `
       *,
-      user:user_id (
+      user:profiles!comments_user_id_profiles_fk (
         username,
         display_name,
         avatar_url

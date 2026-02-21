@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import {
   Download,
@@ -14,15 +14,17 @@ import {
   ChevronDown,
   ChevronUp,
   ListPlus,
-  Star,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { VideoPlayer } from "@/components/player/video-player";
 import { EpisodeList } from "@/components/episode/episode-list";
 import { SidebarCard } from "@/components/episode/sidebar-card";
 import { DownloadModal } from "@/components/episode/download-modal";
+import { CommentList } from "@/components/comments/comment-list";
+import { RatingPicker } from "@/components/user/rating-picker";
+import { CircularRating } from "@/components/ui/circular-rating";
 import { Button } from "@/components/ui/button";
-import { cn, formatNumber, getRatingBgColor } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import { getStreamableQualities } from "@/lib/access";
 import { deriveStreamQualities } from "@/lib/cdn";
 import { QUALITY_LABELS } from "@/lib/constants";
@@ -87,6 +89,16 @@ export function WatchPageClient({
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAllGallery, setShowAllGallery] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
+
+  // Fetch user's existing rating
+  useEffect(() => {
+    if (!user) return;
+    fetch(`/api/episodes/${episode.id}/rate`)
+      .then((r) => r.json())
+      .then((data) => setUserRating(data.score ?? null))
+      .catch(() => {});
+  }, [user, episode.id]);
 
   const userContext: UserContext = {
     id: user?.id ?? null,
@@ -325,25 +337,12 @@ export function WatchPageClient({
 
               {/* Rating badge - large */}
               <div className="hidden sm:flex flex-col items-center justify-start shrink-0">
-                <div
-                  className={cn(
-                    "flex h-14 w-14 flex-col items-center justify-center rounded-lg text-white font-bold",
-                    episode.rating_count > 0
-                      ? getRatingBgColor(episode.rating_avg)
-                      : "bg-muted"
-                  )}
-                >
-                  {episode.rating_count > 0 ? (
-                    <>
-                      <span className="text-lg leading-none">
-                        {episode.rating_avg.toFixed(1)}
-                      </span>
-                      <span className="text-[9px] opacity-70">/10</span>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">N/A</span>
-                  )}
-                </div>
+                <CircularRating
+                  rating={episode.rating_avg}
+                  count={episode.rating_count}
+                  size={56}
+                  strokeWidth={4}
+                />
                 {episode.rating_count > 0 && (
                   <span className="mt-1 text-[10px] text-muted-foreground">
                     {episode.rating_count} votes
@@ -452,12 +451,16 @@ export function WatchPageClient({
               </div>
             )}
 
+            {/* ── Rate this episode ── */}
+            <div className="mt-6 pb-5 border-b border-white/20">
+              <h2 className="mb-3 text-sm font-bold text-primary">
+                Rate this Episode
+              </h2>
+              <RatingPicker episodeId={episode.id} initialRating={userRating} />
+            </div>
+
             {/* ── Action buttons row ── */}
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" disabled className="gap-1.5">
-                <Star className="h-3.5 w-3.5" />
-                Rate
-              </Button>
+            <div className="mt-5 flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled className="gap-1.5">
                 <Heart className="h-3.5 w-3.5" />
                 Favorite
@@ -469,11 +472,7 @@ export function WatchPageClient({
               <h2 className="mb-4 text-sm font-bold text-primary">
                 Comments ({episode.comment_count})
               </h2>
-              <div className="rounded-lg border border-border bg-card/50 p-6 text-center text-sm text-muted-foreground">
-                {user
-                  ? "Comments coming soon..."
-                  : "Log in to view and post comments"}
-              </div>
+              <CommentList episodeId={episode.id} />
             </div>
 
           {/* ── Mobile/Tablet sidebar (below content on < xl) ── */}

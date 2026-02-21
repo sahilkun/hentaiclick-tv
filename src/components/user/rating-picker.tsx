@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn, getRatingBgColor } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
@@ -21,6 +21,11 @@ export function RatingPicker({
   const [rating, setRating] = useState<number | null>(initialRating);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Sync with async-fetched initialRating
+  useEffect(() => {
+    setRating(initialRating);
+  }, [initialRating]);
 
   const handleRate = async (score: number) => {
     if (!user) {
@@ -78,7 +83,9 @@ export function RatingPicker({
     setLoading(false);
   };
 
-  const displayRating = hoveredRating ?? rating;
+  // Lock buttons when a rating is already submitted
+  const isLocked = rating !== null;
+  const displayRating = isLocked ? rating : (hoveredRating ?? rating);
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -86,19 +93,22 @@ export function RatingPicker({
         {Array.from({ length: 10 }, (_, i) => i + 1).map((score) => {
           const isActive =
             displayRating !== null && score <= displayRating;
+          // Each button gets its own color based on its score
+          const activeBg = isActive ? getRatingBgColor(score) : "";
           return (
             <button
               key={score}
               type="button"
-              disabled={loading}
-              onMouseEnter={() => setHoveredRating(score)}
-              onMouseLeave={() => setHoveredRating(null)}
-              onClick={() => handleRate(score)}
+              disabled={loading || isLocked}
+              onMouseEnter={() => !isLocked && setHoveredRating(score)}
+              onMouseLeave={() => !isLocked && setHoveredRating(null)}
+              onClick={() => !isLocked && handleRate(score)}
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold transition-colors",
                 isActive
-                  ? cn("text-white", getRatingBgColor(score))
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  ? cn("text-white", activeBg)
+                  : cn("bg-muted text-muted-foreground", !isLocked && "hover:bg-muted/80"),
+                isLocked && "cursor-default opacity-80"
               )}
             >
               {score}
