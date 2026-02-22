@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("playlists")
-    .select("*, user:user_id (username, display_name)")
+    .select("*, user:profiles!playlists_user_id_profiles_fk (username, display_name)")
     .order("created_at", { ascending: false });
 
   if (isPublic) {

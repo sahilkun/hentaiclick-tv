@@ -13,7 +13,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  ListPlus,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { VideoPlayer } from "@/components/player/video-player";
@@ -23,6 +22,7 @@ import { DownloadModal } from "@/components/episode/download-modal";
 import { CommentList } from "@/components/comments/comment-list";
 import { RatingPicker } from "@/components/user/rating-picker";
 import { FavoriteButton } from "@/components/user/favorite-button";
+import { AddToPlaylist } from "@/components/user/add-to-playlist";
 import { CircularRating } from "@/components/ui/circular-rating";
 import { Button } from "@/components/ui/button";
 import { cn, formatNumber } from "@/lib/utils";
@@ -340,10 +340,7 @@ export function WatchPageClient({
                         </>
                       )}
                     </Button>
-                    <Button variant="outline" size="sm" className="gap-1.5" disabled>
-                      <ListPlus className="h-3.5 w-3.5" />
-                      Playlist
-                    </Button>
+                    <AddToPlaylist episodeId={episode.id} />
                     <FavoriteButton episodeId={episode.id} initialFavorited={isFavorited} />
                   </div>
                 </div>
