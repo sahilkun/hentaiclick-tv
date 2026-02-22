@@ -199,6 +199,15 @@ export function EpisodeForm({
       }
     }
 
+    // Sync episode to MeiliSearch index
+    if (episodeId) {
+      fetch("/api/admin/sync-episode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ episodeId }),
+      }).catch(() => {});
+    }
+
     toast(isEdit ? "Episode updated" : "Episode created", "success");
     router.push("/admin/episodes");
     setSaving(false);

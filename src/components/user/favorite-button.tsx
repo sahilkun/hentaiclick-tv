@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useOptimistic } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +21,14 @@ export function FavoriteButton({
   const { toast } = useToast();
   const [favorited, setFavorited] = useState(initialFavorited);
   const [loading, setLoading] = useState(false);
+  const hasInteracted = useRef(false);
+
+  // Sync with async-fetched initialFavorited, but skip if user already clicked
+  useEffect(() => {
+    if (!hasInteracted.current) {
+      setFavorited(initialFavorited);
+    }
+  }, [initialFavorited]);
 
   const handleToggle = async () => {
     if (!user) {
@@ -29,6 +37,7 @@ export function FavoriteButton({
     }
 
     setLoading(true);
+    hasInteracted.current = true;
     const newState = !favorited;
     setFavorited(newState); // Optimistic
 

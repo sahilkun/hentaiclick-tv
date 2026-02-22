@@ -22,6 +22,7 @@ import { SidebarCard } from "@/components/episode/sidebar-card";
 import { DownloadModal } from "@/components/episode/download-modal";
 import { CommentList } from "@/components/comments/comment-list";
 import { RatingPicker } from "@/components/user/rating-picker";
+import { FavoriteButton } from "@/components/user/favorite-button";
 import { CircularRating } from "@/components/ui/circular-rating";
 import { Button } from "@/components/ui/button";
 import { cn, formatNumber } from "@/lib/utils";
@@ -90,8 +91,9 @@ export function WatchPageClient({
   const [showAllGallery, setShowAllGallery] = useState(false);
   const [copied, setCopied] = useState(false);
   const [userRating, setUserRating] = useState<number | null>(null);
+  const [isFavorited, setIsFavorited] = useState(false);
 
-  // Fetch user's existing rating
+  // Fetch user's existing rating and favorite status
   useEffect(() => {
     if (!user) return;
     fetch(`/api/episodes/${episode.id}/rate`)
@@ -100,6 +102,14 @@ export function WatchPageClient({
         return r.json();
       })
       .then((data) => setUserRating(data.score ?? null))
+      .catch(() => {});
+
+    fetch(`/api/favorites?episode_id=${episode.id}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch favorite");
+        return r.json();
+      })
+      .then((data) => setIsFavorited(data.favorited))
       .catch(() => {});
   }, [user, episode.id]);
 
@@ -334,6 +344,7 @@ export function WatchPageClient({
                       <ListPlus className="h-3.5 w-3.5" />
                       Playlist
                     </Button>
+                    <FavoriteButton episodeId={episode.id} initialFavorited={isFavorited} />
                   </div>
                 </div>
               </div>
@@ -460,14 +471,6 @@ export function WatchPageClient({
                 Rate this Episode
               </h2>
               <RatingPicker episodeId={episode.id} initialRating={userRating} />
-            </div>
-
-            {/* ── Action buttons row ── */}
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" disabled className="gap-1.5">
-                <Heart className="h-3.5 w-3.5" />
-                Favorite
-              </Button>
             </div>
 
             {/* ── Comments ── */}
