@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn, getRatingBgColor } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
@@ -21,10 +21,13 @@ export function RatingPicker({
   const [rating, setRating] = useState<number | null>(initialRating);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const hasInteracted = useRef(false);
 
-  // Sync with async-fetched initialRating
+  // Sync with async-fetched initialRating, but skip if user already interacted
   useEffect(() => {
-    setRating(initialRating);
+    if (!hasInteracted.current) {
+      setRating(initialRating);
+    }
   }, [initialRating]);
 
   const handleRate = async (score: number) => {
@@ -34,6 +37,7 @@ export function RatingPicker({
     }
 
     setLoading(true);
+    hasInteracted.current = true;
     const previousRating = rating;
     setRating(score);
 
@@ -62,6 +66,7 @@ export function RatingPicker({
     if (!user || rating === null) return;
 
     setLoading(true);
+    hasInteracted.current = true;
     const previousRating = rating;
     setRating(null);
 

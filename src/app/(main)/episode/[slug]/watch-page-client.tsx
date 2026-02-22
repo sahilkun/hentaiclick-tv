@@ -95,7 +95,10 @@ export function WatchPageClient({
   useEffect(() => {
     if (!user) return;
     fetch(`/api/episodes/${episode.id}/rate`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch rating");
+        return r.json();
+      })
       .then((data) => setUserRating(data.score ?? null))
       .catch(() => {});
   }, [user, episode.id]);
