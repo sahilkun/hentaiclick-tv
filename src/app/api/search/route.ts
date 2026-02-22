@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const blacklist = searchParams.get("blacklist")?.split(",").filter(Boolean) ?? [];
   const studios = searchParams.get("studios")?.split(",").filter(Boolean) ?? [];
   const minRating = parseFloat(searchParams.get("min_rating") ?? "0");
+  const year = searchParams.get("year") ? parseInt(searchParams.get("year")!) : null;
 
   try {
     const client = getMeilisearchClient();
@@ -35,6 +36,9 @@ export async function GET(request: Request) {
     }
     if (minRating > 0) {
       filters.push(`ratingAvg >= ${minRating}`);
+    }
+    if (year && !isNaN(year)) {
+      filters.push(`year = ${year}`);
     }
 
     const result = await index.search(q, {

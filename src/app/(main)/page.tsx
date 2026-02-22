@@ -11,10 +11,10 @@ export default async function HomePage() {
   const [
     recentlyUploaded,
     recentlyReleased,
-    trending,
+    topViewedWeekly,
     mostViews,
     mostLikes,
-    popularWeekly,
+    highestRated,
     genres,
   ] = await Promise.all([
     getEpisodes("recently_uploaded", 12),
@@ -22,7 +22,7 @@ export default async function HomePage() {
     getEpisodes("trending", 12),
     getEpisodes("most_views", 12),
     getEpisodes("most_likes", 12),
-    getEpisodes("popular_weekly", 12),
+    getEpisodes("highest_rated", 12),
     getGenres(),
   ]);
 
@@ -61,12 +61,12 @@ export default async function HomePage() {
             primarySections={{
               "Recently Uploaded": recentlyUploaded,
               "Recently Released": recentlyReleased,
-              Trending: trending,
+              "Top Viewed This Week": topViewedWeekly,
             }}
             secondarySections={{
               "Most Views": mostViews,
-              "Most Likes": mostLikes,
-              "Popular Weekly": popularWeekly,
+              "Most Favorited": mostLikes,
+              "Highest Rated - Weekly": highestRated,
             }}
           />
         </Suspense>
@@ -75,7 +75,7 @@ export default async function HomePage() {
       {/* Categories */}
       {genres.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 py-8">
-          <h2 className="mb-4 text-xl font-bold">Categories</h2>
+          <h2 className="mb-4 text-xl font-bold">Genre</h2>
           <div
             className="flex gap-4 overflow-x-auto pb-4"
             style={{ scrollbarWidth: "none" }}

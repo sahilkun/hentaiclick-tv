@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, ChevronDown, X, Ban, Building2 } from "lucide-react";
+import { Search, ChevronDown, X, Ban, Building2, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/select";
@@ -55,6 +55,15 @@ const RATING_OPTIONS = [
   })),
 ];
 
+const currentYear = new Date().getFullYear();
+const YEAR_OPTIONS = [
+  { value: "0", label: "All Years" },
+  ...Array.from({ length: currentYear - 1999 }, (_, i) => ({
+    value: String(currentYear - i),
+    label: String(currentYear - i),
+  })),
+];
+
 export default function SearchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,6 +74,9 @@ export default function SearchPage() {
   );
   const [minRating, setMinRating] = useState(
     searchParams.get("min_rating") ?? "0"
+  );
+  const [selectedYear, setSelectedYear] = useState(
+    searchParams.get("year") ?? "0"
   );
   const [selectedGenres, setSelectedGenres] = useState<string[]>(
     searchParams.get("genres")?.split(",").filter(Boolean) ?? []
@@ -192,6 +204,7 @@ export default function SearchPage() {
     params.set("limit", String(SEARCH_PAGE_SIZE));
     params.set("offset", String((page - 1) * SEARCH_PAGE_SIZE));
     if (minRating !== "0") params.set("min_rating", minRating);
+    if (selectedYear !== "0") params.set("year", selectedYear);
     if (selectedGenres.length > 0)
       params.set("genres", selectedGenres.join(","));
     if (blacklistedGenres.length > 0)
@@ -244,7 +257,7 @@ export default function SearchPage() {
     } catch {}
 
     setLoading(false);
-  }, [query, sort, minRating, selectedGenres, blacklistedGenres, selectedStudios, page]);
+  }, [query, sort, minRating, selectedYear, selectedGenres, blacklistedGenres, selectedStudios, page]);
 
   useEffect(() => {
     fetchResults();
@@ -256,6 +269,7 @@ export default function SearchPage() {
     if (query) params.set("q", query);
     if (sort !== "uploadDate:desc") params.set("sort", sort);
     if (minRating !== "0") params.set("min_rating", minRating);
+    if (selectedYear !== "0") params.set("year", selectedYear);
     if (selectedGenres.length > 0)
       params.set("genres", selectedGenres.join(","));
     if (blacklistedGenres.length > 0)
@@ -266,7 +280,7 @@ export default function SearchPage() {
 
     const url = `/search${params.toString() ? `?${params}` : ""}`;
     router.replace(url, { scroll: false });
-  }, [query, sort, minRating, selectedGenres, blacklistedGenres, selectedStudios, page, router]);
+  }, [query, sort, minRating, selectedYear, selectedGenres, blacklistedGenres, selectedStudios, page, router]);
 
   const totalPages = Math.ceil(totalHits / SEARCH_PAGE_SIZE);
 
@@ -315,6 +329,16 @@ export default function SearchPage() {
           }}
           placeholder="Min Rating"
           className="w-40"
+        />
+        <CustomSelect
+          options={YEAR_OPTIONS}
+          value={selectedYear}
+          onChange={(val) => {
+            setSelectedYear(val);
+            setPage(1);
+          }}
+          placeholder="Year"
+          className="w-36"
         />
         <button
           type="button"

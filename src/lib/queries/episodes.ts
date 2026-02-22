@@ -8,7 +8,8 @@ type SortOption =
   | "most_views"
   | "most_likes"
   | "popular_weekly"
-  | "popular_monthly";
+  | "popular_monthly"
+  | "highest_rated";
 
 export async function getEpisodes(
   sort: SortOption = "recently_uploaded",
@@ -61,6 +62,12 @@ export async function getEpisodes(
       break;
     case "popular_monthly":
       query = query.order("view_count", { ascending: false });
+      break;
+    case "highest_rated":
+      query = query
+        .gt("rating_count", 0)
+        .order("rating_avg", { ascending: false })
+        .order("rating_count", { ascending: false });
       break;
   }
 
