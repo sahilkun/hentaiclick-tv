@@ -7,8 +7,10 @@ import {
   Globe,
   Lock,
   Trash2,
-  X,
   ArrowLeft,
+  ChevronUp,
+  ChevronDown,
+  Play,
   Eye,
   Heart,
   MessageCircle,
@@ -17,10 +19,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { EpisodeGridSkeleton } from "@/components/episode/episode-grid";
-import { CircularRating } from "@/components/ui/circular-rating";
 import { cn, formatNumber } from "@/lib/utils";
-import { deriveStreamQualities } from "@/lib/cdn";
 import {
   Modal,
   ModalHeader,
@@ -29,14 +28,16 @@ import {
   ModalBody,
   ModalFooter,
 } from "@/components/ui/modal";
-import type { EpisodeWithRelations } from "@/types";
 
-function getQualityBadgeText(qualities: number[]): string {
-  const parts: string[] = [];
-  if (qualities.includes(2160)) parts.push("4K");
-  if (qualities.includes(1080)) parts.push("FHD");
-  else if (qualities.includes(720)) parts.push("HD");
-  return parts.join(" | ");
+interface PlaylistEpisode {
+  id: string;
+  title: string;
+  slug: string;
+  thumbnail_url: string | null;
+  view_count: number;
+  like_count: number;
+  comment_count: number;
+  series?: { title: string; slug: string } | null;
 }
 
 export default function PlaylistDetailPage({
@@ -49,11 +50,12 @@ export default function PlaylistDetailPage({
   const { user } = useAuth();
   const { toast } = useToast();
   const [playlist, setPlaylist] = useState<any>(null);
-  const [episodes, setEpisodes] = useState<EpisodeWithRelations[]>([]);
+  const [episodes, setEpisodes] = useState<PlaylistEpisode[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [togglingVisibility, setTogglingVisibility] = useState(false);
+  const [reordering, setReordering] = useState<string | null>(null); // episode_id being moved
 
   useEffect(() => {
     fetchPlaylist();
@@ -77,8 +79,9 @@ export default function PlaylistDetailPage({
           `
           position,
           episode:episode_id (
-            *,
-            series:series_id (title, slug, studio:studio_id (name, slug))
+            id, title, slug, thumbnail_url,
+            view_count, like_count, comment_count,
+            series:series_id (title, slug)
           )
         `
         )
@@ -89,7 +92,7 @@ export default function PlaylistDetailPage({
         episodeData
           ?.map((pe: any) => pe.episode)
           .filter(Boolean) ?? [];
-      setEpisodes(eps as unknown as EpisodeWithRelations[]);
+      setEpisodes(eps as PlaylistEpisode[]);
     }
 
     setLoading(false);
@@ -100,7 +103,6 @@ export default function PlaylistDetailPage({
     setTogglingVisibility(true);
 
     const newPublic = !playlist.is_public;
-    // Optimistic
     setPlaylist((p: any) => ({ ...p, is_public: newPublic }));
 
     try {
@@ -111,11 +113,13 @@ export default function PlaylistDetailPage({
       });
 
       if (!res.ok) {
-        // Revert
         setPlaylist((p: any) => ({ ...p, is_public: !newPublic }));
         toast("Failed to update visibility", "error");
       } else {
-        toast(newPublic ? "Playlist is now public" : "Playlist is now private", "success");
+        toast(
+          newPublic ? "Playlist is now public" : "Playlist is now private",
+          "success"
+        );
       }
     } catch {
       setPlaylist((p: any) => ({ ...p, is_public: !newPublic }));
@@ -143,7 +147,6 @@ export default function PlaylistDetailPage({
   };
 
   const removeEpisode = async (episodeId: string) => {
-    // Optimistic
     setEpisodes((prev) => prev.filter((ep) => ep.id !== episodeId));
     setPlaylist((p: any) =>
       p ? { ...p, episode_count: Math.max(0, (p.episode_count ?? 1) - 1) } : p
@@ -157,7 +160,6 @@ export default function PlaylistDetailPage({
       });
 
       if (!res.ok) {
-        // Revert by refetching
         toast("Failed to remove episode", "error");
         fetchPlaylist();
       } else {
@@ -169,27 +171,69 @@ export default function PlaylistDetailPage({
     }
   };
 
+  const moveEpisode = async (
+    episodeId: string,
+    direction: "up" | "down"
+  ) => {
+    if (reordering) return;
+    setReordering(episodeId);
+
+    // Optimistic reorder
+    setEpisodes((prev) => {
+      const idx = prev.findIndex((ep) => ep.id === episodeId);
+      if (idx === -1) return prev;
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[idx], copy[swapIdx]] = [copy[swapIdx], copy[idx]];
+      return copy;
+    });
+
+    try {
+      const res = await fetch("/api/playlists/items", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playlist_id: id, episode_id: episodeId, direction }),
+      });
+
+      if (!res.ok) {
+        toast("Failed to reorder", "error");
+        fetchPlaylist();
+      }
+    } catch {
+      toast("Failed to reorder", "error");
+      fetchPlaylist();
+    }
+
+    setReordering(null);
+  };
+
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-6 h-8 w-48 animate-pulse rounded bg-muted" />
-        <EpisodeGridSkeleton count={8} />
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (!playlist) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8 text-center">
+      <div className="mx-auto max-w-4xl px-4 py-8 text-center">
         <p className="text-muted-foreground">Playlist not found.</p>
       </div>
     );
   }
 
   const isOwner = user?.id === playlist.user_id;
+  const firstEpisode = episodes[0];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-8">
       {/* Back link */}
       <Link
         href="/profile/playlists"
@@ -204,136 +248,174 @@ export default function PlaylistDetailPage({
         <div>
           <h1 className="text-2xl font-bold">{playlist.title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {playlist.episode_count} {playlist.episode_count === 1 ? "episode" : "episodes"}
+            {episodes.length}{" "}
+            {episodes.length === 1 ? "episode" : "episodes"}
+            {" · "}
+            {playlist.is_public ? "Public" : "Private"}
           </p>
         </div>
 
-        {isOwner && (
-          <div className="flex items-center gap-2">
-            {/* Public/Private toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={toggleVisibility}
-              disabled={togglingVisibility}
+        <div className="flex items-center gap-2">
+          {/* Play button */}
+          {firstEpisode && (
+            <Link
+              href={`/episode/${firstEpisode.slug}?playlist=${id}`}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              {playlist.is_public ? (
-                <>
-                  <Globe className="h-3.5 w-3.5 text-primary" />
-                  Public
-                </>
-              ) : (
-                <>
-                  <Lock className="h-3.5 w-3.5" />
-                  Private
-                </>
-              )}
-            </Button>
+              <Play className="h-3.5 w-3.5" />
+              Play
+            </Link>
+          )}
 
-            {/* Delete playlist */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
-            </Button>
-          </div>
-        )}
+          {isOwner && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={toggleVisibility}
+                disabled={togglingVisibility}
+              >
+                {playlist.is_public ? (
+                  <>
+                    <Globe className="h-3.5 w-3.5 text-primary" />
+                    Public
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-3.5 w-3.5" />
+                    Private
+                  </>
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Episodes grid with remove buttons */}
+      {/* Episode list */}
       {episodes.length === 0 ? (
         <div className="py-12 text-center text-muted-foreground">
           No episodes in this playlist yet.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {episodes.map((episode) => (
-            <div key={episode.id} className="group/card relative">
+        <div className="space-y-2">
+          {episodes.map((episode, idx) => (
+            <div
+              key={episode.id}
+              className="group flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent"
+            >
+              {/* Position number */}
+              <span className="w-6 shrink-0 text-center text-sm font-bold text-muted-foreground">
+                {idx + 1}
+              </span>
+
+              {/* Thumbnail */}
               <Link
                 href={`/episode/${episode.slug}`}
-                className="block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-lg"
+                className="relative shrink-0 overflow-hidden rounded-md"
               >
-                {/* Thumbnail */}
-                <div className="relative aspect-video overflow-hidden bg-muted">
+                <div className="relative h-16 w-28 overflow-hidden bg-muted sm:h-20 sm:w-36">
                   {episode.thumbnail_url ? (
                     <img
                       src={episode.thumbnail_url}
                       alt={episode.title}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover/card:scale-105"
+                      className="h-full w-full object-cover"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                      No thumbnail
+                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                      No thumb
                     </div>
                   )}
-
-                  {/* Rating badge */}
-                  <CircularRating
-                    rating={episode.rating_avg}
-                    count={episode.rating_count}
-                    size={38}
-                    strokeWidth={3}
-                    className="absolute left-2 top-2"
-                  />
-
-                  {/* Quality badge */}
-                  {(() => {
-                    const badge = getQualityBadgeText(
-                      deriveStreamQualities(episode.stream_links)
-                    );
-                    return badge ? (
-                      <div className="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">
-                        {badge}
-                      </div>
-                    ) : null;
-                  })()}
-
-                  {/* Stats */}
-                  <div className="absolute bottom-0 left-0 right-0 flex items-center gap-3 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-6">
-                    <span className="flex items-center gap-1 text-xs text-white/90">
-                      <Eye className="h-3.5 w-3.5" />
+                  {/* Stats overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 bg-gradient-to-t from-black/80 to-transparent px-1.5 pb-1 pt-3">
+                    <span className="flex items-center gap-0.5 text-[10px] text-white/90">
+                      <Eye className="h-2.5 w-2.5" />
                       {formatNumber(episode.view_count)}
                     </span>
-                    <span className="flex items-center gap-1 text-xs text-white/90">
-                      <Heart className="h-3.5 w-3.5" />
+                    <span className="flex items-center gap-0.5 text-[10px] text-white/90">
+                      <Heart className="h-2.5 w-2.5" />
                       {formatNumber(episode.like_count)}
                     </span>
-                    <span className="flex items-center gap-1 text-xs text-white/90">
-                      <MessageCircle className="h-3.5 w-3.5" />
+                    <span className="flex items-center gap-0.5 text-[10px] text-white/90">
+                      <MessageCircle className="h-2.5 w-2.5" />
                       {formatNumber(episode.comment_count)}
                     </span>
                   </div>
                 </div>
-
-                {/* Text area */}
-                <div className="p-3">
-                  <h3 className="line-clamp-2 text-sm font-semibold leading-tight group-hover/card:text-primary">
-                    {episode.title}
-                  </h3>
-                  {episode.series && (
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {episode.series.title}
-                    </p>
-                  )}
-                </div>
               </Link>
 
-              {/* Remove button (owner only) */}
+              {/* Title + Series */}
+              <Link
+                href={`/episode/${episode.slug}`}
+                className="flex-1 min-w-0"
+              >
+                <p className="font-medium leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                  {episode.title}
+                </p>
+                {episode.series && (
+                  <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                    {episode.series.title}
+                  </p>
+                )}
+              </Link>
+
+              {/* Reorder + Delete (owner only) */}
               {isOwner && (
-                <button
-                  type="button"
-                  onClick={() => removeEpisode(episode.id)}
-                  className="absolute -right-2 -top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 shadow-lg transition-opacity group-hover/card:opacity-100"
-                  title="Remove from playlist"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  {/* Move up */}
+                  <button
+                    type="button"
+                    onClick={() => moveEpisode(episode.id, "up")}
+                    disabled={idx === 0 || !!reordering}
+                    className={cn(
+                      "rounded p-1.5 transition-colors",
+                      idx === 0
+                        ? "text-muted-foreground/30 cursor-not-allowed"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                    title="Move up"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+
+                  {/* Move down */}
+                  <button
+                    type="button"
+                    onClick={() => moveEpisode(episode.id, "down")}
+                    disabled={idx === episodes.length - 1 || !!reordering}
+                    className={cn(
+                      "rounded p-1.5 transition-colors",
+                      idx === episodes.length - 1
+                        ? "text-muted-foreground/30 cursor-not-allowed"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                    title="Move down"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+
+                  {/* Delete */}
+                  <button
+                    type="button"
+                    onClick={() => removeEpisode(episode.id)}
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    title="Remove from playlist"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               )}
             </div>
           ))}

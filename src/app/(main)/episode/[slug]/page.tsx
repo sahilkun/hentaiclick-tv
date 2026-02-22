@@ -6,6 +6,7 @@ import { WatchPageClient } from "./watch-page-client";
 
 interface Props {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ playlist?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -65,8 +66,9 @@ function getVideoJsonLd(episode: NonNullable<Awaited<ReturnType<typeof getEpisod
   };
 }
 
-export default async function EpisodeWatchPage({ params }: Props) {
+export default async function EpisodeWatchPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const { playlist: playlistId } = await searchParams;
   const episode = await getEpisodeBySlug(slug);
   if (!episode) notFound();
 
@@ -98,6 +100,7 @@ export default async function EpisodeWatchPage({ params }: Props) {
         seriesEpisodes={seriesEpisodes}
         studioEpisodes={studioEpisodes}
         popularWeekly={popularWeekly}
+        playlistId={playlistId}
       />
     </>
   );

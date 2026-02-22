@@ -1,6 +1,74 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// PATCH: Reorder episode (move up/down)
+export async function PATCH(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { playlist_id, episode_id, direction } = await request.json();
+
+  if (!["up", "down"].includes(direction)) {
+    return NextResponse.json({ error: "Invalid direction" }, { status: 400 });
+  }
+
+  // Verify user owns the playlist
+  const { data: playlist } = await supabase
+    .from("playlists")
+    .select("id")
+    .eq("id", playlist_id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!playlist) {
+    return NextResponse.json({ error: "Playlist not found" }, { status: 404 });
+  }
+
+  // Get all episodes ordered by position
+  const { data: items } = await supabase
+    .from("playlist_episodes")
+    .select("id, episode_id, position")
+    .eq("playlist_id", playlist_id)
+    .order("position", { ascending: true });
+
+  if (!items || items.length < 2) {
+    return NextResponse.json({ error: "Cannot reorder" }, { status: 400 });
+  }
+
+  const idx = items.findIndex((i) => i.episode_id === episode_id);
+  if (idx === -1) {
+    return NextResponse.json({ error: "Episode not in playlist" }, { status: 404 });
+  }
+
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= items.length) {
+    return NextResponse.json({ error: "Cannot move further" }, { status: 400 });
+  }
+
+  // Swap positions
+  const current = items[idx];
+  const swap = items[swapIdx];
+
+  await Promise.all([
+    supabase
+      .from("playlist_episodes")
+      .update({ position: swap.position })
+      .eq("id", current.id),
+    supabase
+      .from("playlist_episodes")
+      .update({ position: current.position })
+      .eq("id", swap.id),
+  ]);
+
+  return NextResponse.json({ ok: true });
+}
+
 // GET: Check which of a user's playlists contain a given episode
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

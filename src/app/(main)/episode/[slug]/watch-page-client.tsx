@@ -23,6 +23,7 @@ import { CommentList } from "@/components/comments/comment-list";
 import { RatingPicker } from "@/components/user/rating-picker";
 import { FavoriteButton } from "@/components/user/favorite-button";
 import { AddToPlaylist } from "@/components/user/add-to-playlist";
+import { PlaylistSidebar } from "@/components/user/playlist-sidebar";
 import { CircularRating } from "@/components/ui/circular-rating";
 import { Button } from "@/components/ui/button";
 import { cn, formatNumber } from "@/lib/utils";
@@ -77,6 +78,7 @@ interface WatchPageClientProps {
   seriesEpisodes: EpisodeWithRelations[];
   studioEpisodes: EpisodeWithRelations[];
   popularWeekly: EpisodeWithRelations[];
+  playlistId?: string;
 }
 
 export function WatchPageClient({
@@ -84,6 +86,7 @@ export function WatchPageClient({
   seriesEpisodes,
   studioEpisodes,
   popularWeekly,
+  playlistId,
 }: WatchPageClientProps) {
   const { user } = useAuth();
   const [downloadOpen, setDownloadOpen] = useState(false);
@@ -179,9 +182,17 @@ export function WatchPageClient({
         </div>
 
         {/* ── Right Sidebar next to player (xl+) ── */}
-        {hasSidebar && (
+        {(hasSidebar || playlistId) && (
           <div className="hidden xl:flex xl:flex-col w-[300px] shrink-0 max-h-[calc((90vw-348px)*9/16)] overflow-y-auto">
             <div className="space-y-5">
+              {/* Playlist sidebar (when playing from playlist) */}
+              {playlistId && (
+                <PlaylistSidebar
+                  playlistId={playlistId}
+                  currentEpisodeId={episode.id}
+                />
+              )}
+
               {/* Series episodes */}
               {seriesEpisodes.length > 1 && (
                 <div>
@@ -480,6 +491,16 @@ export function WatchPageClient({
 
           {/* ── Mobile/Tablet sidebar (below content on < xl) ── */}
           <div className="xl:hidden w-full space-y-8 mt-8">
+            {/* Playlist (when playing from playlist) */}
+            {playlistId && (
+              <div className="rounded-lg border border-border p-4">
+                <PlaylistSidebar
+                  playlistId={playlistId}
+                  currentEpisodeId={episode.id}
+                />
+              </div>
+            )}
+
             {/* Series episodes */}
             {seriesEpisodes.length > 1 && (
               <div>
