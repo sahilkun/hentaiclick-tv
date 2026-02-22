@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, ListVideo } from "lucide-react";
+import { Plus, ListVideo, Globe, Lock, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ export default function PlaylistsPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newPublic, setNewPublic] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<PlaylistData | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchPlaylists = async () => {
     if (!user) return;
@@ -73,6 +75,68 @@ export default function PlaylistsPage() {
     setCreating(false);
   };
 
+  const toggleVisibility = async (e: React.MouseEvent, playlist: PlaylistData) => {
+    e.preventDefault(); // Don't navigate
+    e.stopPropagation();
+
+    const newPublic = !playlist.is_public;
+    // Optimistic
+    setPlaylists((prev) =>
+      prev.map((p) => (p.id === playlist.id ? { ...p, is_public: newPublic } : p))
+    );
+
+    try {
+      const res = await fetch(`/api/playlists/${playlist.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_public: newPublic }),
+      });
+
+      if (!res.ok) {
+        setPlaylists((prev) =>
+          prev.map((p) => (p.id === playlist.id ? { ...p, is_public: !newPublic } : p))
+        );
+        toast("Failed to update visibility", "error");
+      } else {
+        toast(newPublic ? "Playlist is now public" : "Playlist is now private", "success");
+      }
+    } catch {
+      setPlaylists((prev) =>
+        prev.map((p) => (p.id === playlist.id ? { ...p, is_public: !newPublic } : p))
+      );
+      toast("Failed to update visibility", "error");
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, playlist: PlaylistData) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeleteTarget(playlist);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+
+    try {
+      const res = await fetch(`/api/playlists/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast("Playlist deleted", "success");
+        setPlaylists((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+        setDeleteTarget(null);
+      } else {
+        toast("Failed to delete playlist", "error");
+      }
+    } catch {
+      toast("Failed to delete playlist", "error");
+    }
+
+    setDeleting(false);
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -102,16 +166,46 @@ export default function PlaylistsPage() {
             <Link
               key={playlist.id}
               href={`/profile/playlists/${playlist.id}`}
-              className="flex items-center gap-4 rounded-lg border border-border p-4 hover:bg-accent"
+              className="flex items-center gap-4 rounded-lg border border-border p-4 hover:bg-accent transition-colors"
             >
-              <ListVideo className="h-8 w-8 text-muted-foreground" />
-              <div className="flex-1">
-                <p className="font-medium">{playlist.title}</p>
+              <ListVideo className="h-8 w-8 shrink-0 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{playlist.title}</p>
                 <p className="text-sm text-muted-foreground">
-                  {playlist.episode_count} episodes ·{" "}
-                  {playlist.is_public ? "Public" : "Private"}
+                  {playlist.episode_count}{" "}
+                  {playlist.episode_count === 1 ? "episode" : "episodes"}
                 </p>
               </div>
+
+              {/* Visibility toggle */}
+              <button
+                type="button"
+                onClick={(e) => toggleVisibility(e, playlist)}
+                className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-xs transition-colors hover:bg-muted"
+                title={playlist.is_public ? "Make private" : "Make public"}
+              >
+                {playlist.is_public ? (
+                  <>
+                    <Globe className="h-3.5 w-3.5 text-primary" />
+                    Public
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-3.5 w-3.5" />
+                    Private
+                  </>
+                )}
+              </button>
+
+              {/* Delete button */}
+              <button
+                type="button"
+                onClick={(e) => handleDeleteClick(e, playlist)}
+                className="flex shrink-0 items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                title="Delete playlist"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </Link>
           ))}
         </div>
@@ -158,6 +252,33 @@ export default function PlaylistsPage() {
             disabled={creating || !newTitle.trim()}
           >
             {creating ? "Creating..." : "Create"}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+        <ModalHeader>
+          <ModalTitle>Delete Playlist</ModalTitle>
+          <ModalClose onClose={() => setDeleteTarget(null)} />
+        </ModalHeader>
+        <ModalBody>
+          <p>
+            Are you sure you want to delete{" "}
+            <strong>{deleteTarget?.title}</strong>? This will remove all
+            episodes from the playlist. This action cannot be undone.
+          </p>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={confirmDelete}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting..." : "Delete"}
           </Button>
         </ModalFooter>
       </Modal>
