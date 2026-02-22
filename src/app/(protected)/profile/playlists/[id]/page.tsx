@@ -8,8 +8,8 @@ import {
   Lock,
   Trash2,
   ArrowLeft,
-  ChevronUp,
-  ChevronDown,
+  ArrowUp,
+  ArrowDown,
   Play,
   Eye,
   Heart,
@@ -373,21 +373,21 @@ export default function PlaylistDetailPage({
 
               {/* Reorder + Delete (owner only) */}
               {isOwner && (
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1.5">
                   {/* Move up */}
                   <button
                     type="button"
                     onClick={() => moveEpisode(episode.id, "up")}
                     disabled={idx === 0 || !!reordering}
                     className={cn(
-                      "rounded p-1.5 transition-colors",
+                      "flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
                       idx === 0
-                        ? "text-muted-foreground/30 cursor-not-allowed"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        ? "border-border/40 text-muted-foreground/25 cursor-not-allowed"
+                        : "border-border text-foreground hover:bg-primary/15 hover:border-primary hover:text-primary"
                     )}
                     title="Move up"
                   >
-                    <ChevronUp className="h-4 w-4" />
+                    <ArrowUp className="h-4.5 w-4.5" />
                   </button>
 
                   {/* Move down */}
@@ -396,21 +396,21 @@ export default function PlaylistDetailPage({
                     onClick={() => moveEpisode(episode.id, "down")}
                     disabled={idx === episodes.length - 1 || !!reordering}
                     className={cn(
-                      "rounded p-1.5 transition-colors",
+                      "flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
                       idx === episodes.length - 1
-                        ? "text-muted-foreground/30 cursor-not-allowed"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        ? "border-border/40 text-muted-foreground/25 cursor-not-allowed"
+                        : "border-border text-foreground hover:bg-primary/15 hover:border-primary hover:text-primary"
                     )}
                     title="Move down"
                   >
-                    <ChevronDown className="h-4 w-4" />
+                    <ArrowDown className="h-4.5 w-4.5" />
                   </button>
 
                   {/* Delete */}
                   <button
                     type="button"
                     onClick={() => removeEpisode(episode.id)}
-                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-destructive/70 transition-colors hover:bg-destructive/15 hover:border-destructive hover:text-destructive"
                     title="Remove from playlist"
                   >
                     <Trash2 className="h-4 w-4" />
