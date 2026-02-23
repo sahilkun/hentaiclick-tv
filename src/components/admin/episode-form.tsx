@@ -54,6 +54,7 @@ export function EpisodeForm({
   const [form, setForm] = useState({
     title: episode?.title ?? "",
     slug: episode?.slug ?? "",
+    regional_name: episode?.regional_name ?? "",
     description: episode?.description ?? "",
     series_id: episode?.series_id ?? "",
     studio_id: initialStudioId ?? episode?.studio_id ?? "",
@@ -127,6 +128,7 @@ export function EpisodeForm({
     const payload = {
       title: form.title,
       slug: form.slug,
+      regional_name: form.regional_name || null,
       description: form.description,
       series_id: form.series_id || null,
       studio_id: form.studio_id || null,
@@ -233,6 +235,20 @@ export function EpisodeForm({
             required
           />
         </div>
+      </div>
+
+      {/* Regional Name (optional) */}
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Regional Name <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <Input
+          value={form.regional_name}
+          onChange={(e) =>
+            setForm({ ...form, regional_name: e.target.value })
+          }
+          placeholder="Japanese title (e.g., 夏と箱)"
+        />
       </div>
 
       {/* Description */}

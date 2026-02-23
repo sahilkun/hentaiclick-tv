@@ -220,6 +220,7 @@ export default function SearchPage() {
           data.hits.map((hit: any) => ({
             id: hit.id,
             title: hit.title,
+            regional_name: hit.regionalName || null,
             slug: hit.slug,
             thumbnail_url: hit.thumbnailUrl,
             stream_links: hit.streamLinks ?? {},
@@ -291,7 +292,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[90%] sm:px-6 lg:px-8 py-8">
       {/* Search bar */}
       <form onSubmit={handleSearch} className="mb-6">
         <div className="flex gap-2">

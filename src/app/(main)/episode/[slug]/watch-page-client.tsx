@@ -21,10 +21,10 @@ import { SidebarCard } from "@/components/episode/sidebar-card";
 import { DownloadModal } from "@/components/episode/download-modal";
 import { CommentList } from "@/components/comments/comment-list";
 import { RatingPicker } from "@/components/user/rating-picker";
+import { RatingBreakdown } from "@/components/episode/rating-breakdown";
 import { FavoriteButton } from "@/components/user/favorite-button";
 import { AddToPlaylist } from "@/components/user/add-to-playlist";
 import { PlaylistSidebar } from "@/components/user/playlist-sidebar";
-import { CircularRating } from "@/components/ui/circular-rating";
 import { Button } from "@/components/ui/button";
 import { cn, formatNumber } from "@/lib/utils";
 import { getStreamableQualities } from "@/lib/access";
@@ -159,104 +159,29 @@ export function WatchPageClient({
     ? galleryImages
     : galleryImages.slice(0, GALLERY_PREVIEW);
 
-  // Determine which sidebar sections to show
-  const hasSidebar =
-    seriesEpisodes.length > 0 ||
-    studioEpisodes.length > 0 ||
-    popularWeekly.length > 0;
-
   return (
     <div>
-      {/* ── Top area: Player + Sidebar ── */}
-      <div className="flex flex-col xl:flex-row gap-4 px-4 max-w-[90%] mx-auto">
-        {/* Player — takes remaining width */}
-        <div className="flex-1 min-w-0">
-          <VideoPlayer
-            streamLinks={episode.stream_links}
-            subtitleLinks={episode.subtitle_links}
-            thumbnailPath={episode.thumbnail_path}
-            availableQualities={streamQualities}
-            allowedQualities={allowedQualities}
-            onView={handleView}
-          />
-        </div>
+      {/* ── Two-column layout: Content (left) + Sidebar (right) ── */}
+      <div className="w-full px-1 sm:px-2 lg:px-4 py-6 flex flex-col xl:flex-row gap-6">
 
-        {/* ── Right Sidebar next to player (xl+) ── */}
-        {(hasSidebar || playlistId) && (
-          <div className="hidden xl:flex xl:flex-col w-[300px] shrink-0 max-h-[calc((90vw-348px)*9/16)] overflow-y-auto">
-            <div className="space-y-5">
-              {/* Playlist sidebar (when playing from playlist) */}
-              {playlistId && (
-                <PlaylistSidebar
-                  playlistId={playlistId}
-                  currentEpisodeId={episode.id}
-                />
-              )}
+        {/* ── Left: Episode content ── */}
+        <div className="flex-1 min-w-0 space-y-4">
 
-              {/* Series episodes */}
-              {seriesEpisodes.length > 1 && (
-                <div>
-                  <h3 className="mb-2.5 text-sm font-bold text-foreground">
-                    Episodes ({seriesEpisodes.length})
-                  </h3>
-                  <div className="space-y-3">
-                    {seriesEpisodes.map((ep) => (
-                      <SidebarCard
-                        key={ep.id}
-                        episode={ep}
-                        isCurrent={ep.id === episode.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Studio episodes */}
-              {studioEpisodes.length > 0 && studioName && (
-                <div>
-                  <h3 className="mb-2.5 text-sm font-bold text-foreground">
-                    More from Studio{" "}
-                    {studioSlug ? (
-                      <Link
-                        href={`/studios/${studioSlug}`}
-                        className="text-primary hover:underline"
-                      >
-                        {studioName}
-                      </Link>
-                    ) : (
-                      <span className="text-primary">{studioName}</span>
-                    )}
-                  </h3>
-                  <div className="space-y-3">
-                    {studioEpisodes.map((ep) => (
-                      <SidebarCard key={ep.id} episode={ep} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Popular Weekly */}
-              {popularWeekly.length > 0 && (
-                <div>
-                  <h3 className="mb-2.5 text-sm font-bold text-foreground">
-                    Popular Weekly
-                  </h3>
-                  <div className="space-y-3">
-                    {popularWeekly.map((ep) => (
-                      <SidebarCard key={ep.id} episode={ep} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* ── Video Player ── */}
+          <div className="rounded-lg overflow-hidden bg-[rgba(38,38,38)]">
+            <VideoPlayer
+              streamLinks={episode.stream_links}
+              subtitleLinks={episode.subtitle_links}
+              thumbnailPath={episode.thumbnail_path}
+              availableQualities={streamQualities}
+              allowedQualities={allowedQualities}
+              onView={handleView}
+            />
           </div>
-        )}
-      </div>
 
-      {/* ── Episode Info Section ── */}
-      <div className="mx-auto max-w-7xl px-4 py-6">
-            {/* Header: Poster + Title + Meta */}
-            <div className="flex gap-4 pb-5 border-b border-white/20">
+          {/* Header: Poster + Title + Meta */}
+          <div className="rounded-lg bg-[rgba(38,38,38)] p-5">
+            <div className="flex gap-4 pb-5 border-b border-[#54575c]">
               {episode.poster_url && (
                 <img
                   src={episode.poster_url}
@@ -268,6 +193,9 @@ export function WatchPageClient({
                 <h1 className="text-xl font-bold text-primary sm:text-2xl">
                   {episode.title}
                 </h1>
+                {episode.regional_name && (
+                  <p className="text-sm text-muted-foreground">{episode.regional_name}</p>
+                )}
                 {episode.series && (
                   <Link
                     href={`/series/${episode.series.slug}`}
@@ -356,26 +284,11 @@ export function WatchPageClient({
                   </div>
                 </div>
               </div>
-
-              {/* Rating badge - large */}
-              <div className="hidden sm:flex flex-col items-center justify-start shrink-0">
-                <CircularRating
-                  rating={episode.rating_avg}
-                  count={episode.rating_count}
-                  size={56}
-                  strokeWidth={4}
-                />
-                {episode.rating_count > 0 && (
-                  <span className="mt-1 text-[10px] text-muted-foreground">
-                    {episode.rating_count} votes
-                  </span>
-                )}
-              </div>
             </div>
 
             {/* ── Description ── */}
             {episode.meta_description && (
-              <div className="mt-5 pb-5 border-b border-white/20">
+              <div className="mt-5 pb-5 border-b border-[#54575c]">
                 <h2 className="mb-2 text-sm font-bold text-primary">
                   Description
                 </h2>
@@ -403,7 +316,7 @@ export function WatchPageClient({
 
             {/* ── Genres ── */}
             {episode.genres && episode.genres.length > 0 && (
-              <div className="mt-5 pb-5 border-b border-white/20">
+              <div className="mt-5">
                 <h2 className="mb-3 text-sm font-bold text-primary">
                   Genres
                 </h2>
@@ -427,73 +340,86 @@ export function WatchPageClient({
                 </div>
               </div>
             )}
+          </div>
 
-            {/* ── Gallery ── */}
-            {galleryImages.length > 0 && (
-              <div className="mt-5 pb-5 border-b border-white/20">
-                <h2 className="mb-3 text-sm font-bold text-primary">
-                  Gallery
-                </h2>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-                  {visibleGallery.map((url, i) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group/img relative aspect-video overflow-hidden rounded-lg"
-                    >
-                      <img
-                        src={url}
-                        alt={`Gallery ${i + 1}`}
-                        className="h-full w-full object-cover transition-transform duration-200 group-hover/img:scale-105"
-                        loading="lazy"
-                      />
-                    </a>
-                  ))}
-                </div>
-                {galleryImages.length > GALLERY_PREVIEW && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllGallery(!showAllGallery)}
-                    className="mt-3 flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                  >
-                    {showAllGallery ? (
-                      <>
-                        Show Less <ChevronUp className="h-4 w-4" />
-                      </>
-                    ) : (
-                      <>
-                        Show More ({galleryImages.length - GALLERY_PREVIEW} more){" "}
-                        <ChevronDown className="h-4 w-4" />
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* ── Rate this episode ── */}
-            <div className="mt-6 pb-5 border-b border-white/20">
+          {/* ── Gallery ── */}
+          {galleryImages.length > 0 && (
+            <div className="rounded-lg bg-[rgba(38,38,38)] p-5">
               <h2 className="mb-3 text-sm font-bold text-primary">
-                Rate this Episode
+                Gallery
               </h2>
-              <RatingPicker episodeId={episode.id} initialRating={userRating} />
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+                {visibleGallery.map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group/img relative aspect-video overflow-hidden rounded-lg"
+                  >
+                    <img
+                      src={url}
+                      alt={`Gallery ${i + 1}`}
+                      className="h-full w-full object-cover transition-transform duration-200 group-hover/img:scale-105"
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
+              </div>
+              {galleryImages.length > GALLERY_PREVIEW && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllGallery(!showAllGallery)}
+                  className="mt-3 flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                >
+                  {showAllGallery ? (
+                    <>
+                      Show Less <ChevronUp className="h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      Show More ({galleryImages.length - GALLERY_PREVIEW} more){" "}
+                      <ChevronDown className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              )}
             </div>
+          )}
 
-            {/* ── Comments ── */}
-            <div className="mt-8">
-              <h2 className="mb-4 text-sm font-bold text-primary">
-                Comments ({episode.comment_count})
-              </h2>
-              <CommentList episodeId={episode.id} />
-            </div>
+          {/* ── Rating Breakdown (IMDB-style) ── */}
+          <div className="rounded-lg bg-[rgba(38,38,38)] p-5">
+            <h2 className="mb-4 text-sm font-bold text-primary">
+              Rating
+            </h2>
+            <RatingBreakdown
+              episodeId={episode.id}
+              ratingAvg={episode.rating_avg}
+              ratingCount={episode.rating_count}
+            />
+          </div>
+
+          {/* ── Rate this episode ── */}
+          <div className="rounded-lg bg-[rgba(38,38,38)] p-5">
+            <h2 className="mb-3 text-sm font-bold text-primary">
+              Rate this Episode
+            </h2>
+            <RatingPicker episodeId={episode.id} initialRating={userRating} />
+          </div>
+
+          {/* ── Comments ── */}
+          <div className="rounded-lg bg-[rgba(38,38,38)] p-5">
+            <h2 className="mb-4 text-sm font-bold text-primary">
+              Comments ({episode.comment_count})
+            </h2>
+            <CommentList episodeId={episode.id} />
+          </div>
 
           {/* ── Mobile/Tablet sidebar (below content on < xl) ── */}
-          <div className="xl:hidden w-full space-y-8 mt-8">
+          <div className="xl:hidden space-y-6">
             {/* Playlist (when playing from playlist) */}
             {playlistId && (
-              <div className="rounded-lg border border-border p-4">
+              <div className="rounded-lg bg-[rgba(38,38,38)] p-5">
                 <PlaylistSidebar
                   playlistId={playlistId}
                   currentEpisodeId={episode.id}
@@ -505,7 +431,8 @@ export function WatchPageClient({
             {seriesEpisodes.length > 1 && (
               <div>
                 <h2 className="mb-3 text-sm font-bold">
-                  Episodes ({seriesEpisodes.length})
+                  More from{" "}
+                  <span className="text-primary">{episode.series?.title}</span>
                 </h2>
                 <EpisodeList
                   episodes={seriesEpisodes}
@@ -522,7 +449,7 @@ export function WatchPageClient({
                   <span className="text-primary">{studioName}</span>
                 </h2>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                  {studioEpisodes.slice(0, 4).map((ep) => (
+                  {studioEpisodes.slice(0, 6).map((ep) => (
                     <SidebarCard key={ep.id} episode={ep} />
                   ))}
                 </div>
@@ -534,13 +461,87 @@ export function WatchPageClient({
               <div>
                 <h2 className="mb-3 text-sm font-bold">Popular This Week</h2>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                  {popularWeekly.slice(0, 4).map((ep) => (
+                  {popularWeekly.slice(0, 8).map((ep) => (
                     <SidebarCard key={ep.id} episode={ep} />
                   ))}
                 </div>
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── Right Sidebar (xl+ only) ── */}
+        <div className="hidden xl:block w-[340px] shrink-0 space-y-6">
+          {/* Playlist sidebar (when playing from playlist) */}
+          {playlistId && (
+            <PlaylistSidebar
+              playlistId={playlistId}
+              currentEpisodeId={episode.id}
+            />
+          )}
+
+          {/* Series episodes */}
+          {seriesEpisodes.length > 1 && (
+            <div>
+              <h3 className="mb-3 text-sm font-bold text-foreground">
+                More from{" "}
+                <Link
+                  href={`/series/${episode.series?.slug}`}
+                  className="text-primary hover:underline"
+                >
+                  {episode.series?.title}
+                </Link>
+              </h3>
+              <div className="space-y-3">
+                {seriesEpisodes.map((ep) => (
+                  <SidebarCard
+                    key={ep.id}
+                    episode={ep}
+                    isCurrent={ep.id === episode.id}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Studio episodes (6 max) */}
+          {studioEpisodes.length > 0 && studioName && (
+            <div>
+              <h3 className="mb-3 text-sm font-bold text-foreground">
+                More from Studio{" "}
+                {studioSlug ? (
+                  <Link
+                    href={`/studios/${studioSlug}`}
+                    className="text-primary hover:underline"
+                  >
+                    {studioName}
+                  </Link>
+                ) : (
+                  <span className="text-primary">{studioName}</span>
+                )}
+              </h3>
+              <div className="space-y-3">
+                {studioEpisodes.slice(0, 6).map((ep) => (
+                  <SidebarCard key={ep.id} episode={ep} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Popular Weekly (8 max) */}
+          {popularWeekly.length > 0 && (
+            <div>
+              <h3 className="mb-3 text-sm font-bold text-foreground">
+                Popular This Week
+              </h3>
+              <div className="space-y-3">
+                {popularWeekly.slice(0, 8).map((ep) => (
+                  <SidebarCard key={ep.id} episode={ep} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Download Modal */}

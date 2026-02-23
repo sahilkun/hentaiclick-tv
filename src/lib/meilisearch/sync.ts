@@ -11,6 +11,7 @@ export async function configureIndex() {
   await index.updateSettings({
     searchableAttributes: [
       "title",
+      "regionalName",
       "seriesTitle",
       "studioName",
       "genreNames",
@@ -36,6 +37,7 @@ export async function configureIndex() {
     displayedAttributes: [
       "id",
       "title",
+      "regionalName",
       "slug",
       "thumbnailUrl",
       "seriesTitle",
@@ -149,6 +151,7 @@ export async function reindexAllEpisodes(): Promise<number> {
     return {
       id: ep.id,
       title: ep.title,
+      regionalName: ep.regional_name ?? "",
       slug: ep.slug,
       thumbnailUrl: ep.thumbnail_url,
       seriesTitle: ep.series?.title ?? "",
@@ -246,6 +249,7 @@ export async function syncEpisode(episodeId: string) {
     {
       id: ep.id,
       title: ep.title,
+      regionalName: ep.regional_name ?? "",
       slug: ep.slug,
       thumbnailUrl: ep.thumbnail_url,
       seriesTitle: (ep as any).series?.title ?? "",

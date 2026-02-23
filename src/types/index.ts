@@ -10,6 +10,7 @@ export interface EpisodeWithRelations {
   title: string;
   slug: string;
   description: string;
+  regional_name: string | null;
   stream_links: Record<string, string>;
   download_links: Record<string, string>;
   subtitle_links: Record<string, string>;

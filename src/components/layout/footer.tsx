@@ -11,7 +11,7 @@ const footerLinks = [
 export function Footer() {
   return (
     <footer className="border-t border-border bg-card">
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[84%] px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div>
             <Link href="/" className="text-lg font-bold text-primary">

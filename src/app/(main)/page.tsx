@@ -55,7 +55,7 @@ export default async function HomePage() {
       </section>
 
       {/* Tabbed Episode Sections */}
-      <section className="mx-auto max-w-7xl px-4 py-8">
+      <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
         <Suspense fallback={<EpisodeGridSkeleton />}>
           <HomeTabs
             primarySections={{
@@ -74,7 +74,7 @@ export default async function HomePage() {
 
       {/* Categories */}
       {genres.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-8">
+        <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
           <h2 className="mb-4 text-xl font-bold">Genre</h2>
           <div
             className="flex gap-4 overflow-x-auto pb-4"

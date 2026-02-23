@@ -72,7 +72,7 @@ export default function PublicPlaylistsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
       <h1 className="mb-6 text-2xl font-bold">Public Playlists</h1>
 
       {/* Filters */}

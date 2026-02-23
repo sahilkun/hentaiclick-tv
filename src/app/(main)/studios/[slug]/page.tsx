@@ -57,7 +57,7 @@ export default async function StudioDetailPage({ params }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
       <div className="mb-6 flex items-center gap-4">
         {studio.logo_url && (
           <img
