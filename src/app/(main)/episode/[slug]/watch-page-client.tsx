@@ -186,7 +186,7 @@ export function WatchPageClient({
                 <img
                   src={episode.poster_url}
                   alt={episode.title}
-                  className="hidden h-36 w-24 rounded-lg object-cover shadow-md sm:block"
+                  className="hidden w-[150px] aspect-[11/16] rounded-lg object-cover shadow-md sm:block"
                 />
               )}
               <div className="flex-1 min-w-0">

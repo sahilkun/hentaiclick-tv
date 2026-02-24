@@ -25,7 +25,7 @@ import type { Profile } from "@/types";
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/search", label: "Search" },
-  { href: "/playlists", label: "Playlists" },
+  { href: "/public-playlists", label: "Public Playlists" },
 ];
 
 export function Header() {

@@ -1,8 +1,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/constants";
-import { getEpisodes, getGenres } from "@/lib/queries/episodes";
+import {
+  getEpisodes,
+  getGenresWithPosters,
+  getLatestComments,
+} from "@/lib/queries/episodes";
 import { EpisodeGridSkeleton } from "@/components/episode/episode-grid";
+import { GenreCategories } from "@/components/genre/genre-categories";
+import { LatestComments } from "@/components/comments/latest-comments";
 import { HomeTabs } from "./home-tabs";
 
 export const revalidate = 60;
@@ -15,7 +21,8 @@ export default async function HomePage() {
     mostViews,
     mostLikes,
     highestRated,
-    genres,
+    genresWithPosters,
+    latestComments,
   ] = await Promise.all([
     getEpisodes("recently_uploaded", 12),
     getEpisodes("recently_released", 12),
@@ -23,7 +30,8 @@ export default async function HomePage() {
     getEpisodes("most_views", 12),
     getEpisodes("most_likes", 12),
     getEpisodes("highest_rated", 12),
-    getGenres(),
+    getGenresWithPosters(),
+    getLatestComments(10),
   ]);
 
   return (
@@ -72,24 +80,17 @@ export default async function HomePage() {
         </Suspense>
       </section>
 
-      {/* Categories */}
-      {genres.length > 0 && (
+      {/* Categories – stacked poster cards */}
+      {genresWithPosters.length > 0 && (
         <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
-          <h2 className="mb-4 text-xl font-bold">Genre</h2>
-          <div
-            className="flex gap-4 overflow-x-auto pb-4"
-            style={{ scrollbarWidth: "none" }}
-          >
-            {genres.slice(0, 12).map((genre) => (
-              <Link
-                key={genre.id}
-                href={`/genres/${genre.slug}`}
-                className="flex shrink-0 flex-col items-center gap-2 rounded-lg border border-border bg-card px-6 py-4 transition-colors hover:bg-accent"
-              >
-                <span className="text-sm font-medium">{genre.name}</span>
-              </Link>
-            ))}
-          </div>
+          <GenreCategories genres={genresWithPosters} />
+        </section>
+      )}
+
+      {/* Latest Comments */}
+      {latestComments.length > 0 && (
+        <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
+          <LatestComments comments={latestComments} />
         </section>
       )}
     </div>
