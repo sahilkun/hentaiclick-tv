@@ -13,6 +13,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  TriangleAlert,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { VideoPlayer } from "@/components/player/video-player";
@@ -33,6 +34,8 @@ import { QUALITY_LABELS } from "@/lib/constants";
 import { useAuth } from "@/hooks/use-auth";
 import type { EpisodeWithRelations, UserContext } from "@/types";
 
+const WARNING_GENRES = new Set(["gore", "horror", "scat", "rape"]);
+
 /* ─── Genre color map (text + hover bg) ─── */
 const GENRE_COLORS: Record<string, { text: string; hover: string }> = {
   "4k": { text: "text-emerald-400", hover: "hover:bg-emerald-500/35" },
@@ -40,7 +43,7 @@ const GENRE_COLORS: Record<string, { text: string; hover: string }> = {
   censored: { text: "text-yellow-500", hover: "hover:bg-yellow-500/35" },
   uncensored: { text: "text-emerald-400", hover: "hover:bg-emerald-500/35" },
   ntr: { text: "text-red-400", hover: "hover:bg-red-500/35" },
-  rape: { text: "text-red-400", hover: "hover:bg-red-500/35" },
+  rape: { text: "text-red-600", hover: "hover:bg-red-700 hover:text-white" },
   netorare: { text: "text-red-400", hover: "hover:bg-red-500/35" },
   "48fps": { text: "text-cyan-400", hover: "hover:bg-cyan-500/35" },
   milf: { text: "text-amber-300", hover: "hover:bg-amber-400/35" },
@@ -63,6 +66,9 @@ const GENRE_COLORS: Record<string, { text: string; hover: string }> = {
   threesome: { text: "text-amber-400", hover: "hover:bg-amber-500/35" },
   gangbang: { text: "text-red-300", hover: "hover:bg-red-400/35" },
   fantasy: { text: "text-indigo-300", hover: "hover:bg-indigo-400/35" },
+  gore: { text: "text-red-600", hover: "hover:bg-red-700 hover:text-white" },
+  horror: { text: "text-red-600", hover: "hover:bg-red-700 hover:text-white" },
+  scat: { text: "text-red-600", hover: "hover:bg-red-700 hover:text-white" },
 };
 
 function genreColor(slug: string) {
@@ -334,10 +340,13 @@ export function WatchPageClient({
                       <Link
                         href={`/search?genres=${genre.slug}`}
                         className={cn(
-                          "rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors",
+                          "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors",
                           genreColor(genre.slug)
                         )}
                       >
+                        {WARNING_GENRES.has(genre.slug) && (
+                          <TriangleAlert className="h-3.5 w-3.5" />
+                        )}
                         {genre.name}
                       </Link>
                     </span>

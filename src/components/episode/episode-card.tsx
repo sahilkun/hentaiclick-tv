@@ -2,13 +2,15 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Eye, Heart, MessageCircle } from "lucide-react";
+import { Eye, Heart, MessageCircle, TriangleAlert } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { CircularRating } from "@/components/ui/circular-rating";
 import { deriveStreamQualities } from "@/lib/cdn";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
 import type { EpisodeWithRelations } from "@/types";
 import type { ViewMode } from "./episode-grid";
+
+const WARNING_GENRES = new Set(["gore", "horror", "scat", "rape"]);
 
 interface EpisodeCardProps {
   episode: EpisodeWithRelations;
@@ -142,10 +144,31 @@ export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: Epis
         <h3 className="line-clamp-2 text-sm font-semibold leading-tight group-hover:text-primary">
           {episode.title}
         </h3>
-        {episode.series && (
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {episode.series.title}
+        {episode.description && (
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground">
+            {episode.description}
           </p>
+        )}
+        {episode.genres && episode.genres.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {episode.genres.map((genre) => {
+              const isWarning = WARNING_GENRES.has(genre.slug);
+              return (
+                <span
+                  key={genre.slug}
+                  className={cn(
+                    "inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wider transition-colors",
+                    isWarning
+                      ? "text-red-600 hover:bg-red-700 hover:text-white"
+                      : "text-foreground hover:bg-rose-700 hover:text-white"
+                  )}
+                >
+                  {isWarning && <TriangleAlert className="h-3 w-3" />}
+                  {genre.name}
+                </span>
+              );
+            })}
+          </div>
         )}
       </div>
     </Link>

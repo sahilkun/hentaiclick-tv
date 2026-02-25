@@ -78,7 +78,44 @@ export async function getEpisodes(
     return [];
   }
 
-  return (data ?? []) as unknown as EpisodeWithRelations[];
+  if (!data || data.length === 0) return [];
+
+  // Fetch genres for all episodes in one query
+  const episodeIds = data.map((ep: any) => ep.id);
+  const { data: egData } = await supabase
+    .from("episode_genres")
+    .select("episode_id, genre:genre_id (id, name, slug)")
+    .in("episode_id", episodeIds);
+
+  // Also fetch series-level genres for episodes that have a series
+  const seriesIds = data
+    .map((ep: any) => ep.series_id)
+    .filter(Boolean) as string[];
+  let sgMap: Record<string, any[]> = {};
+  if (seriesIds.length > 0) {
+    const { data: sgData } = await supabase
+      .from("series_genres")
+      .select("series_id, genre:genre_id (id, name, slug)")
+      .in("series_id", seriesIds);
+    for (const sg of sgData ?? []) {
+      if (!sgMap[sg.series_id]) sgMap[sg.series_id] = [];
+      sgMap[sg.series_id].push(sg.genre);
+    }
+  }
+
+  // Build episode-genre map
+  const egMap: Record<string, any[]> = {};
+  for (const eg of egData ?? []) {
+    if (!egMap[eg.episode_id]) egMap[eg.episode_id] = [];
+    egMap[eg.episode_id].push(eg.genre);
+  }
+
+  return data.map((ep: any) => ({
+    ...ep,
+    genres:
+      egMap[ep.id]?.filter(Boolean) ??
+      (ep.series_id ? sgMap[ep.series_id]?.filter(Boolean) ?? [] : []),
+  })) as unknown as EpisodeWithRelations[];
 }
 
 export async function getEpisodeBySlug(

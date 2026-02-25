@@ -260,6 +260,12 @@ export default function SearchPage() {
             series: hit.seriesTitle
               ? { title: hit.seriesTitle, slug: hit.seriesSlug }
               : null,
+            genres:
+              hit.genreNames?.map((name: string, i: number) => ({
+                id: hit.genreSlugs?.[i] ?? name,
+                name,
+                slug: hit.genreSlugs?.[i] ?? name.toLowerCase(),
+              })) ?? [],
           }))
         );
         setTotalHits(data.totalHits);

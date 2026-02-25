@@ -63,6 +63,7 @@ export async function configureIndex() {
       "downloadLinks",
       "thumbnailPath",
       "status",
+      "description",
     ],
   });
 }
