@@ -282,3 +282,41 @@ export async function syncEpisode(episodeId: string) {
     },
   ]);
 }
+
+/**
+ * Lightweight sync that only updates counter/stat fields in MeiliSearch
+ * (view_count, like_count, comment_count, rating_avg, rating_count, views_7d).
+ * Called after views, ratings, favorites, or comments are modified.
+ */
+export async function syncEpisodeStats(episodeId: string) {
+  try {
+    const supabase = createAdminClient();
+    const client = getMeilisearchAdminClient();
+
+    const { data: ep } = await supabase
+      .from("episodes")
+      .select(
+        "id, view_count, like_count, comment_count, rating_avg, rating_count, views_7d"
+      )
+      .eq("id", episodeId)
+      .single();
+
+    if (!ep) return;
+
+    const index = client.index(INDEX_NAME);
+    await index.updateDocuments([
+      {
+        id: ep.id,
+        viewCount: ep.view_count,
+        likeCount: ep.like_count,
+        commentCount: ep.comment_count,
+        ratingAvg: ep.rating_avg,
+        ratingCount: ep.rating_count,
+        views7d: ep.views_7d,
+      },
+    ]);
+  } catch (error) {
+    // Don't fail the main request if MeiliSearch sync fails
+    console.error("Failed to sync episode stats to MeiliSearch:", error);
+  }
+}

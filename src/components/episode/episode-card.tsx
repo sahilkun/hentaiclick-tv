@@ -8,22 +8,26 @@ import { CircularRating } from "@/components/ui/circular-rating";
 import { deriveStreamQualities } from "@/lib/cdn";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
 import type { EpisodeWithRelations } from "@/types";
+import type { ViewMode } from "./episode-grid";
 
 interface EpisodeCardProps {
   episode: EpisodeWithRelations;
   className?: string;
+  viewMode?: ViewMode;
 }
 
-export function EpisodeCard({ episode, className }: EpisodeCardProps) {
+export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: EpisodeCardProps) {
   const [hovering, setHovering] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
+
+  const isPoster = viewMode === "poster";
 
   const hasGallery =
     episode.gallery_urls && episode.gallery_urls.length > 0;
 
   const startGallery = useCallback(() => {
-    if (!hasGallery) return;
+    if (!hasGallery || isPoster) return;
     setHovering(true);
     setGalleryIndex(0);
     intervalRef.current = setInterval(() => {
@@ -31,7 +35,7 @@ export function EpisodeCard({ episode, className }: EpisodeCardProps) {
         prev + 1 >= episode.gallery_urls.length ? 0 : prev + 1
       );
     }, 1500);
-  }, [hasGallery, episode.gallery_urls?.length]);
+  }, [hasGallery, isPoster, episode.gallery_urls?.length]);
 
   const stopGallery = useCallback(() => {
     setHovering(false);
@@ -50,8 +54,10 @@ export function EpisodeCard({ episode, className }: EpisodeCardProps) {
   // Build quality badge text (e.g. "4K | FHD")
   const qualityBadge = getQualityBadgeText(deriveStreamQualities(episode.stream_links));
 
-  const thumbnailSrc =
-    hovering && hasGallery
+  // Choose image source based on view mode
+  const imageSrc = isPoster
+    ? episode.poster_url || episode.thumbnail_url
+    : hovering && hasGallery
       ? episode.gallery_urls[galleryIndex]
       : episode.thumbnail_url;
 
@@ -65,18 +71,21 @@ export function EpisodeCard({ episode, className }: EpisodeCardProps) {
       onMouseEnter={startGallery}
       onMouseLeave={stopGallery}
     >
-      {/* Thumbnail area */}
-      <div className="relative aspect-video overflow-hidden bg-muted">
-        {thumbnailSrc ? (
+      {/* Image area */}
+      <div className={cn(
+        "relative overflow-hidden bg-muted",
+        isPoster ? "aspect-[11/16]" : "aspect-video"
+      )}>
+        {imageSrc ? (
           <img
-            src={thumbnailSrc}
+            src={imageSrc}
             alt={episode.title}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            No thumbnail
+            No {isPoster ? "poster" : "thumbnail"}
           </div>
         )}
 
@@ -84,7 +93,7 @@ export function EpisodeCard({ episode, className }: EpisodeCardProps) {
         <CircularRating
           rating={episode.rating_avg}
           count={episode.rating_count}
-          size={38}
+          size={isPoster ? 32 : 38}
           strokeWidth={3}
           className="absolute left-2 top-2"
         />
@@ -112,8 +121,8 @@ export function EpisodeCard({ episode, className }: EpisodeCardProps) {
           </span>
         </div>
 
-        {/* Gallery indicator dots */}
-        {hovering && hasGallery && (
+        {/* Gallery indicator dots (thumbnail mode only) */}
+        {!isPoster && hovering && hasGallery && (
           <div className="absolute bottom-8 left-1/2 flex -translate-x-1/2 gap-1">
             {episode.gallery_urls.slice(0, 8).map((_, i) => (
               <div

@@ -137,6 +137,11 @@ export function WatchPageClient({
     } catch {}
   }, [episode.id]);
 
+  // Record a view on page load
+  useEffect(() => {
+    handleView();
+  }, [handleView]);
+
   const handleShare = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);

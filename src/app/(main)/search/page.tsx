@@ -9,6 +9,7 @@ import { CustomSelect } from "@/components/ui/select";
 import {
   EpisodeGrid,
   EpisodeGridSkeleton,
+  type ViewMode,
 } from "@/components/episode/episode-grid";
 import { SEARCH_PAGE_SIZE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,11 @@ const SORT_OPTIONS = [
   { value: "viewCount:desc", label: "Most Views" },
   { value: "ratingAvg:desc", label: "Rating (High → Low)" },
   { value: "ratingAvg:asc", label: "Rating (Low → High)" },
+];
+
+const VIEW_MODE_OPTIONS = [
+  { value: "thumbnail", label: "Thumbnail" },
+  { value: "poster", label: "Poster" },
 ];
 
 const RATING_OPTIONS = [
@@ -93,6 +99,9 @@ export default function SearchPage() {
   const [results, setResults] = useState<EpisodeWithRelations[]>([]);
   const [totalHits, setTotalHits] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    (searchParams.get("view") as ViewMode) || "thumbnail"
+  );
 
   // Genres state
   const [allGenres, setAllGenres] = useState<GenreItem[]>([]);
@@ -278,10 +287,11 @@ export default function SearchPage() {
     if (selectedStudios.length > 0)
       params.set("studios", selectedStudios.join(","));
     if (page > 1) params.set("page", String(page));
+    if (viewMode !== "thumbnail") params.set("view", viewMode);
 
     const url = `/search${params.toString() ? `?${params}` : ""}`;
     router.replace(url, { scroll: false });
-  }, [query, sort, minRating, selectedYear, selectedGenres, blacklistedGenres, selectedStudios, page, router]);
+  }, [query, sort, minRating, selectedYear, selectedGenres, blacklistedGenres, selectedStudios, page, viewMode, router]);
 
   const totalPages = Math.ceil(totalHits / SEARCH_PAGE_SIZE);
 
@@ -436,6 +446,13 @@ export default function SearchPage() {
           />
         </button>
 
+        <CustomSelect
+          options={VIEW_MODE_OPTIONS}
+          value={viewMode}
+          onChange={(val) => setViewMode(val as ViewMode)}
+          className="w-40"
+        />
+
         {selectedGenres.length > 0 && (
           <button
             type="button"
@@ -466,6 +483,7 @@ export default function SearchPage() {
             Clear studios
           </button>
         )}
+
       </div>
 
       {/* Selected genre tags (when panel is closed) */}
@@ -666,9 +684,9 @@ export default function SearchPage() {
 
       {/* Results grid */}
       {loading ? (
-        <EpisodeGridSkeleton count={SEARCH_PAGE_SIZE} />
+        <EpisodeGridSkeleton count={SEARCH_PAGE_SIZE} viewMode={viewMode} />
       ) : (
-        <EpisodeGrid episodes={results} />
+        <EpisodeGrid episodes={results} viewMode={viewMode} />
       )}
 
       {/* Pagination */}

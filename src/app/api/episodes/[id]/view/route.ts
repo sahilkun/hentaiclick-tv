@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import crypto from "crypto";
+import { syncEpisodeStats } from "@/lib/meilisearch/sync";
 
 export async function POST(
   _request: Request,
@@ -21,6 +22,9 @@ export async function POST(
       p_episode_id: episodeId,
       p_ip_hash: ipHash,
     });
+
+    // Sync updated stats to MeiliSearch (fire-and-forget)
+    syncEpisodeStats(episodeId).catch(() => {});
   } catch (error) {
     console.error("Error recording view:", error);
   }

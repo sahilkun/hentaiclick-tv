@@ -3,12 +3,15 @@ import { EpisodeCard } from "./episode-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { EpisodeWithRelations } from "@/types";
 
+export type ViewMode = "thumbnail" | "poster";
+
 interface EpisodeGridProps {
   episodes: EpisodeWithRelations[];
   className?: string;
+  viewMode?: ViewMode;
 }
 
-export function EpisodeGrid({ episodes, className }: EpisodeGridProps) {
+export function EpisodeGrid({ episodes, className, viewMode = "thumbnail" }: EpisodeGridProps) {
   if (episodes.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -20,12 +23,15 @@ export function EpisodeGrid({ episodes, className }: EpisodeGridProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+        "grid gap-4",
+        viewMode === "poster"
+          ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
         className
       )}
     >
       {episodes.map((episode) => (
-        <EpisodeCard key={episode.id} episode={episode} />
+        <EpisodeCard key={episode.id} episode={episode} viewMode={viewMode} />
       ))}
     </div>
   );
@@ -34,14 +40,19 @@ export function EpisodeGrid({ episodes, className }: EpisodeGridProps) {
 export function EpisodeGridSkeleton({
   count = 8,
   className,
+  viewMode = "thumbnail",
 }: {
   count?: number;
   className?: string;
+  viewMode?: ViewMode;
 }) {
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+        "grid gap-4",
+        viewMode === "poster"
+          ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+          : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
         className
       )}
     >
@@ -50,7 +61,7 @@ export function EpisodeGridSkeleton({
           key={i}
           className="overflow-hidden rounded-lg border border-border bg-card"
         >
-          <Skeleton className="aspect-video w-full" />
+          <Skeleton className={viewMode === "poster" ? "aspect-[11/16] w-full" : "aspect-video w-full"} />
           <div className="space-y-2 p-3">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { syncEpisodeStats } from "@/lib/meilisearch/sync";
 
 export async function GET(
   _request: Request,
@@ -61,6 +62,9 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  // Sync updated stats to MeiliSearch (fire-and-forget)
+  syncEpisodeStats(episodeId).catch(() => {});
+
   return NextResponse.json({ ok: true });
 }
 
@@ -87,6 +91,9 @@ export async function DELETE(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  // Sync updated stats to MeiliSearch (fire-and-forget)
+  syncEpisodeStats(episodeId).catch(() => {});
 
   return NextResponse.json({ ok: true });
 }
