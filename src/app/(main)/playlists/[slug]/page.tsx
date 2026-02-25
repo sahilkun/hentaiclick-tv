@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { PlaylistDetailClient } from "./playlist-detail-client";
 import type { Metadata } from "next";
 import type { EpisodeWithRelations } from "@/types";
@@ -9,7 +9,7 @@ interface PlaylistPageProps {
 }
 
 async function getPlaylist(slug: string) {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: playlist } = await supabase
     .from("playlists")

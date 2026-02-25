@@ -1,15 +1,24 @@
 import { MeiliSearch } from "meilisearch";
 
-export function getMeilisearchClient() {
-  return new MeiliSearch({
-    host: process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? "http://localhost:7700",
-    apiKey: process.env.NEXT_PUBLIC_MEILISEARCH_SEARCH_KEY ?? "",
-  });
+let searchClient: MeiliSearch | null = null;
+let adminClient: MeiliSearch | null = null;
+
+export function getMeilisearchClient(): MeiliSearch {
+  if (!searchClient) {
+    searchClient = new MeiliSearch({
+      host: process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? "http://localhost:7700",
+      apiKey: process.env.NEXT_PUBLIC_MEILISEARCH_SEARCH_KEY ?? "",
+    });
+  }
+  return searchClient;
 }
 
-export function getMeilisearchAdminClient() {
-  return new MeiliSearch({
-    host: process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? "http://localhost:7700",
-    apiKey: process.env.MEILISEARCH_ADMIN_KEY ?? "",
-  });
+export function getMeilisearchAdminClient(): MeiliSearch {
+  if (!adminClient) {
+    adminClient = new MeiliSearch({
+      host: process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? "http://localhost:7700",
+      apiKey: process.env.MEILISEARCH_ADMIN_KEY ?? "",
+    });
+  }
+  return adminClient;
 }

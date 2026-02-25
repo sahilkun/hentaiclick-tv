@@ -15,7 +15,8 @@ export async function GET(
     .eq("episode_id", episodeId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Failed to fetch ratings:", error.message);
+    return NextResponse.json({ error: "Failed to load ratings" }, { status: 500 });
   }
 
   // Build breakdown: count per score (1-10)

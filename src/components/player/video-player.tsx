@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { TriangleAlert, RotateCcw } from "lucide-react";
 import Hls from "hls.js";
 import { cn } from "@/lib/utils";
@@ -162,6 +162,12 @@ export function VideoPlayer({
   onView,
   className,
 }: VideoPlayerProps) {
+  // Stable key for streamLinks to use as useEffect dependency
+  const streamLinksKey = useMemo(
+    () => Object.entries(streamLinks).sort().map(([k, v]) => `${k}:${v}`).join("|"),
+    [streamLinks]
+  );
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -364,8 +370,7 @@ export function VideoPlayer({
         clickTimerRef.current = undefined;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(streamLinks)]);
+  }, [streamLinksKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Video event listeners
   useEffect(() => {

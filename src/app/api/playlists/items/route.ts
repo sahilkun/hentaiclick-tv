@@ -132,8 +132,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Playlist not found" }, { status: 404 });
   }
 
+  // Verify episode exists and is published
+  const { data: episode } = await supabase
+    .from("episodes")
+    .select("id")
+    .eq("id", episode_id)
+    .eq("status", "published")
+    .single();
+
+  if (!episode) {
+    return NextResponse.json({ error: "Episode not found" }, { status: 404 });
+  }
+
   // Get next position
-  const { count } = await supabase
+  const { count: posCount } = await supabase
     .from("playlist_episodes")
     .select("*", { count: "exact", head: true })
     .eq("playlist_id", playlist_id);
@@ -141,7 +153,7 @@ export async function POST(request: Request) {
   const { error } = await supabase.from("playlist_episodes").insert({
     playlist_id,
     episode_id,
-    position: (count ?? 0) + 1,
+    position: (posCount ?? 0) + 1,
   });
 
   if (error) {
@@ -151,13 +163,18 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: "Failed to add episode" }, { status: 400 });
   }
 
-  // Update episode_count
+  // Recount after insert to avoid race conditions
+  const { count: newCount } = await supabase
+    .from("playlist_episodes")
+    .select("*", { count: "exact", head: true })
+    .eq("playlist_id", playlist_id);
+
   await supabase
     .from("playlists")
-    .update({ episode_count: (count ?? 0) + 1 })
+    .update({ episode_count: newCount ?? 0 })
     .eq("id", playlist_id);
 
   return NextResponse.json({ ok: true });
@@ -195,7 +212,8 @@ export async function DELETE(request: Request) {
     .eq("episode_id", episode_id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Failed to remove episode from playlist:", error.message);
+    return NextResponse.json({ error: "Failed to remove episode" }, { status: 500 });
   }
 
   // Update episode_count

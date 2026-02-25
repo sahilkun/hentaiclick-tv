@@ -1,26 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireModerator, requireAdmin, isAuthError } from "@/lib/auth";
 import { getMeilisearchAdminClient } from "@/lib/meilisearch/client";
 import { reindexAllEpisodes, configureIndex } from "@/lib/meilisearch/sync";
 
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || !["admin", "moderator"].includes(profile.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireModerator();
+  if (isAuthError(auth)) return auth;
 
   try {
     const client = getMeilisearchAdminClient();
@@ -33,38 +18,24 @@ export async function GET() {
     });
   } catch (error) {
     return NextResponse.json(
-      { healthy: false, numberOfDocuments: 0, error: String(error) },
+      { healthy: false, numberOfDocuments: 0, error: "MeiliSearch unavailable" },
       { status: 500 }
     );
   }
 }
 
 export async function POST() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || profile.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireAdmin();
+  if (isAuthError(auth)) return auth;
 
   try {
     await configureIndex();
     const count = await reindexAllEpisodes();
     return NextResponse.json({ ok: true, indexed: count });
   } catch (error) {
+    console.error("Reindex failed:", error);
     return NextResponse.json(
-      { ok: false, error: String(error) },
+      { ok: false, error: "Reindex failed" },
       { status: 500 }
     );
   }

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncEpisodeStats } from "@/lib/meilisearch/sync";
+import { isValidUUID } from "@/lib/validation";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(
   _request: Request,
@@ -31,6 +33,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: episodeId } = await params;
+
+  if (!isValidUUID(episodeId)) {
+    return NextResponse.json({ error: "Invalid episode ID" }, { status: 400 });
+  }
+
+  const ip = getClientIp(request);
+  if (!rateLimit(`rate:${ip}`, 30, 60_000).success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -42,11 +54,23 @@ export async function POST(
 
   const { score } = await request.json();
 
-  if (typeof score !== "number" || score < 1 || score > 10) {
+  if (typeof score !== "number" || !Number.isInteger(score) || score < 1 || score > 10) {
     return NextResponse.json(
-      { error: "Score must be between 1 and 10" },
+      { error: "Score must be an integer between 1 and 10" },
       { status: 400 }
     );
+  }
+
+  // Verify episode exists and is published
+  const { data: episode } = await supabase
+    .from("episodes")
+    .select("id")
+    .eq("id", episodeId)
+    .eq("status", "published")
+    .single();
+
+  if (!episode) {
+    return NextResponse.json({ error: "Episode not found" }, { status: 404 });
   }
 
   const { error } = await supabase.from("ratings").upsert(
@@ -59,20 +83,31 @@ export async function POST(
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Failed to save rating:", error.message);
+    return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
   }
 
   // Sync updated stats to MeiliSearch (fire-and-forget)
-  syncEpisodeStats(episodeId).catch(() => {});
+  syncEpisodeStats(episodeId).catch(console.error);
 
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: episodeId } = await params;
+
+  if (!isValidUUID(episodeId)) {
+    return NextResponse.json({ error: "Invalid episode ID" }, { status: 400 });
+  }
+
+  const ip = getClientIp(request);
+  if (!rateLimit(`rate:${ip}`, 30, 60_000).success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -89,11 +124,12 @@ export async function DELETE(
     .eq("episode_id", episodeId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Failed to delete rating:", error.message);
+    return NextResponse.json({ error: "Failed to delete rating" }, { status: 500 });
   }
 
   // Sync updated stats to MeiliSearch (fire-and-forget)
-  syncEpisodeStats(episodeId).catch(() => {});
+  syncEpisodeStats(episodeId).catch(console.error);
 
   return NextResponse.json({ ok: true });
 }

@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { COMMENT_MAX_LENGTH, COMMENT_MAX_NESTING } from "@/lib/constants";
+import { COMMENT_MAX_LENGTH } from "@/lib/constants";
 import { syncEpisodeStats } from "@/lib/meilisearch/sync";
+import { isValidUUID } from "@/lib/validation";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const episodeId = searchParams.get("episode_id");
-  if (!episodeId) {
-    return NextResponse.json({ error: "episode_id required" }, { status: 400 });
+  if (!episodeId || !isValidUUID(episodeId)) {
+    return NextResponse.json({ error: "Valid episode_id required" }, { status: 400 });
   }
 
   const supabase = await createClient();
@@ -29,13 +31,19 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Failed to fetch comments:", error.message);
+    return NextResponse.json({ error: "Failed to load comments" }, { status: 500 });
   }
 
   return NextResponse.json({ comments: data ?? [] });
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIp(request);
+  if (!rateLimit(`comment:${ip}`, 10, 60_000).success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -47,11 +55,31 @@ export async function POST(request: Request) {
 
   const { episode_id, parent_id, content } = await request.json();
 
-  if (!content || content.length > COMMENT_MAX_LENGTH) {
+  if (!episode_id || !isValidUUID(episode_id)) {
+    return NextResponse.json({ error: "Invalid episode_id" }, { status: 400 });
+  }
+
+  if (parent_id && !isValidUUID(parent_id)) {
+    return NextResponse.json({ error: "Invalid parent_id" }, { status: 400 });
+  }
+
+  if (!content || typeof content !== "string" || content.trim().length === 0 || content.length > COMMENT_MAX_LENGTH) {
     return NextResponse.json(
       { error: `Comment must be 1-${COMMENT_MAX_LENGTH} characters` },
       { status: 400 }
     );
+  }
+
+  // Verify episode exists and is published
+  const { data: episode } = await supabase
+    .from("episodes")
+    .select("id")
+    .eq("id", episode_id)
+    .eq("status", "published")
+    .single();
+
+  if (!episode) {
+    return NextResponse.json({ error: "Episode not found" }, { status: 404 });
   }
 
   // Check nesting depth
@@ -77,18 +105,19 @@ export async function POST(request: Request) {
       episode_id,
       user_id: user.id,
       parent_id: parent_id ?? null,
-      content,
+      content: content.trim(),
       status: "pending",
     })
     .select()
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Failed to create comment:", error.message);
+    return NextResponse.json({ error: "Failed to submit comment" }, { status: 500 });
   }
 
   // Sync updated stats to MeiliSearch (fire-and-forget)
-  syncEpisodeStats(episode_id).catch(() => {});
+  syncEpisodeStats(episode_id).catch(console.error);
 
   return NextResponse.json({ comment: data });
 }

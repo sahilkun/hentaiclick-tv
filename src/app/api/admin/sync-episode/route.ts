@@ -1,25 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireModerator, isAuthError } from "@/lib/auth";
 import { syncEpisode } from "@/lib/meilisearch/sync";
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || !["admin", "moderator"].includes(profile.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireModerator();
+  if (isAuthError(auth)) return auth;
 
   const { episodeId } = await request.json();
   if (!episodeId) {
@@ -30,8 +15,9 @@ export async function POST(request: Request) {
     await syncEpisode(episodeId);
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("Episode sync failed:", error);
     return NextResponse.json(
-      { ok: false, error: String(error) },
+      { ok: false, error: "Sync failed" },
       { status: 500 }
     );
   }

@@ -3,6 +3,97 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const INDEX_NAME = "episodes";
 
+/** Shape of an episode row joined with studio + series relations from Supabase. */
+interface EpisodeRow {
+  id: string;
+  title: string;
+  regional_name: string | null;
+  slug: string;
+  thumbnail_url: string | null;
+  stream_links: Record<string, string> | null;
+  download_links: Record<string, string> | null;
+  subtitle_links: Record<string, string> | null;
+  thumbnail_path: string | null;
+  gallery_urls: string[] | null;
+  poster_url: string | null;
+  rating_avg: number;
+  rating_count: number;
+  view_count: number;
+  like_count: number;
+  comment_count: number;
+  views_7d: number;
+  upload_date: string;
+  release_date: string | null;
+  duration_seconds: number | null;
+  meta_description: string | null;
+  status: string;
+  series_id: string | null;
+  studio?: { name: string; slug: string } | null;
+  series?: {
+    title: string;
+    slug: string;
+    studio?: { name: string; slug: string } | null;
+  } | null;
+}
+
+interface GenreRef {
+  name: string;
+  slug: string;
+}
+
+/** Shared mapping from a Supabase episode row to a MeiliSearch document. */
+function episodeToSearchDocument(
+  ep: EpisodeRow,
+  genres: GenreRef[]
+) {
+  const studioName = ep.studio?.name ?? ep.series?.studio?.name ?? "";
+  const studioSlug = ep.studio?.slug ?? ep.series?.studio?.slug ?? "";
+
+  return {
+    id: ep.id,
+    title: ep.title,
+    regionalName: ep.regional_name ?? "",
+    slug: ep.slug,
+    thumbnailUrl: ep.thumbnail_url,
+    seriesTitle: ep.series?.title ?? "",
+    seriesSlug: ep.series?.slug ?? "",
+    studioName,
+    studioSlug,
+    genreNames: genres.map((g) => g.name),
+    genreSlugs: genres.map((g) => g.slug),
+    availableQualities: Object.keys(ep.stream_links ?? {})
+      .map(Number)
+      .filter((n) => !isNaN(n))
+      .sort((a, b) => a - b),
+    ratingAvg: ep.rating_avg,
+    ratingCount: ep.rating_count,
+    viewCount: ep.view_count,
+    likeCount: ep.like_count,
+    commentCount: ep.comment_count,
+    views7d: ep.views_7d,
+    uploadDate: ep.upload_date,
+    releaseDate: ep.release_date,
+    durationSeconds: ep.duration_seconds,
+    galleryUrls: ep.gallery_urls,
+    posterUrl: ep.poster_url,
+    status: ep.status,
+    description: ep.meta_description ?? "",
+    year: ep.release_date
+      ? new Date(ep.release_date).getFullYear()
+      : null,
+  };
+}
+
+const EPISODE_WITH_RELATIONS_QUERY = `
+  *,
+  studio:studio_id (name, slug),
+  series:series_id (
+    title,
+    slug,
+    studio:studio_id (name, slug)
+  )
+`;
+
 export async function configureIndex() {
   const client = getMeilisearchAdminClient();
 
@@ -58,14 +149,16 @@ export async function configureIndex() {
       "durationSeconds",
       "galleryUrls",
       "posterUrl",
-      "streamLinks",
-      "subtitleLinks",
-      "downloadLinks",
-      "thumbnailPath",
       "status",
       "description",
     ],
   });
+}
+
+interface GenreRow {
+  episode_id?: string;
+  series_id?: string;
+  genre: GenreRef | null;
 }
 
 export async function reindexAllEpisodes(): Promise<number> {
@@ -74,17 +167,7 @@ export async function reindexAllEpisodes(): Promise<number> {
 
   const { data: episodes, error } = await supabase
     .from("episodes")
-    .select(
-      `
-      *,
-      studio:studio_id (name, slug),
-      series:series_id (
-        title,
-        slug,
-        studio:studio_id (name, slug)
-      )
-    `
-    )
+    .select(EPISODE_WITH_RELATIONS_QUERY)
     .eq("status", "published");
 
   if (error || !episodes) {
@@ -92,9 +175,11 @@ export async function reindexAllEpisodes(): Promise<number> {
     return 0;
   }
 
+  const typedEpisodes = episodes as unknown as EpisodeRow[];
+
   // Fetch episode-level genres
-  const episodeIds = episodes.map((e: any) => e.id);
-  const episodeGenreMap = new Map<string, { name: string; slug: string }[]>();
+  const episodeIds = typedEpisodes.map((e) => e.id);
+  const episodeGenreMap = new Map<string, GenreRef[]>();
   if (episodeIds.length > 0) {
     const { data: epGenreData } = await supabase
       .from("episode_genres")
@@ -102,12 +187,13 @@ export async function reindexAllEpisodes(): Promise<number> {
       .in("episode_id", episodeIds);
 
     if (epGenreData) {
-      for (const row of epGenreData as any[]) {
-        if (!episodeGenreMap.has(row.episode_id)) {
-          episodeGenreMap.set(row.episode_id, []);
+      for (const row of epGenreData as unknown as GenreRow[]) {
+        const epId = row.episode_id!;
+        if (!episodeGenreMap.has(epId)) {
+          episodeGenreMap.set(epId, []);
         }
         if (row.genre) {
-          episodeGenreMap.get(row.episode_id)!.push(row.genre);
+          episodeGenreMap.get(epId)!.push(row.genre);
         }
       }
     }
@@ -115,9 +201,9 @@ export async function reindexAllEpisodes(): Promise<number> {
 
   // Fetch series-level genres as fallback
   const seriesIds = [
-    ...new Set(episodes.map((e: any) => e.series_id).filter(Boolean)),
-  ];
-  const seriesGenreMap = new Map<string, { name: string; slug: string }[]>();
+    ...new Set(typedEpisodes.map((e) => e.series_id).filter(Boolean)),
+  ] as string[];
+  const seriesGenreMap = new Map<string, GenreRef[]>();
   if (seriesIds.length > 0) {
     const { data: genreData } = await supabase
       .from("series_genres")
@@ -125,18 +211,19 @@ export async function reindexAllEpisodes(): Promise<number> {
       .in("series_id", seriesIds);
 
     if (genreData) {
-      for (const row of genreData as any[]) {
-        if (!seriesGenreMap.has(row.series_id)) {
-          seriesGenreMap.set(row.series_id, []);
+      for (const row of genreData as unknown as GenreRow[]) {
+        const sId = row.series_id!;
+        if (!seriesGenreMap.has(sId)) {
+          seriesGenreMap.set(sId, []);
         }
         if (row.genre) {
-          seriesGenreMap.get(row.series_id)!.push(row.genre);
+          seriesGenreMap.get(sId)!.push(row.genre);
         }
       }
     }
   }
 
-  const documents = episodes.map((ep: any) => {
+  const documents = typedEpisodes.map((ep) => {
     // Episode-level genres first, then fall back to series-level
     const genres =
       episodeGenreMap.get(ep.id)?.length
@@ -145,44 +232,7 @@ export async function reindexAllEpisodes(): Promise<number> {
           ? seriesGenreMap.get(ep.series_id) ?? []
           : [];
 
-    // Episode-level studio first, then fall back to series studio
-    const studioName = ep.studio?.name ?? ep.series?.studio?.name ?? "";
-    const studioSlug = ep.studio?.slug ?? ep.series?.studio?.slug ?? "";
-
-    return {
-      id: ep.id,
-      title: ep.title,
-      regionalName: ep.regional_name ?? "",
-      slug: ep.slug,
-      thumbnailUrl: ep.thumbnail_url,
-      seriesTitle: ep.series?.title ?? "",
-      seriesSlug: ep.series?.slug ?? "",
-      studioName,
-      studioSlug,
-      genreNames: genres.map((g: any) => g.name),
-      genreSlugs: genres.map((g: any) => g.slug),
-      availableQualities: Object.keys(ep.stream_links ?? {}).map(Number).filter((n: number) => !isNaN(n)).sort((a: number, b: number) => a - b),
-      ratingAvg: ep.rating_avg,
-      ratingCount: ep.rating_count,
-      viewCount: ep.view_count,
-      likeCount: ep.like_count,
-      commentCount: ep.comment_count,
-      views7d: ep.views_7d,
-      uploadDate: ep.upload_date,
-      releaseDate: ep.release_date,
-      durationSeconds: ep.duration_seconds,
-      galleryUrls: ep.gallery_urls,
-      posterUrl: ep.poster_url,
-      streamLinks: ep.stream_links,
-      subtitleLinks: ep.subtitle_links,
-      downloadLinks: ep.download_links,
-      thumbnailPath: ep.thumbnail_path,
-      status: ep.status,
-      description: ep.meta_description ?? "",
-      year: ep.release_date
-        ? new Date(ep.release_date).getFullYear()
-        : null,
-    };
+    return episodeToSearchDocument(ep, genres);
   });
 
   const index = client.index(INDEX_NAME);
@@ -197,25 +247,16 @@ export async function syncEpisode(episodeId: string) {
 
   const { data: ep } = await supabase
     .from("episodes")
-    .select(
-      `
-      *,
-      studio:studio_id (name, slug),
-      series:series_id (
-        title,
-        slug,
-        studio:studio_id (name, slug)
-      )
-    `
-    )
+    .select(EPISODE_WITH_RELATIONS_QUERY)
     .eq("id", episodeId)
     .single();
 
   if (!ep) return;
 
+  const typedEp = ep as unknown as EpisodeRow;
   const index = client.index(INDEX_NAME);
 
-  if (ep.status !== "published") {
+  if (typedEp.status !== "published") {
     await index.deleteDocument(episodeId);
     return;
   }
@@ -226,62 +267,25 @@ export async function syncEpisode(episodeId: string) {
     .select("genre:genre_id (name, slug)")
     .eq("episode_id", episodeId);
 
-  let genres: { name: string; slug: string }[] =
-    epGenreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
+  let genres: GenreRef[] =
+    (epGenreData as unknown as GenreRow[])
+      ?.map((g) => g.genre)
+      .filter((g): g is GenreRef => g !== null) ?? [];
 
   // Fall back to series-level genres
-  if (genres.length === 0 && ep.series_id) {
+  if (genres.length === 0 && typedEp.series_id) {
     const { data: seriesGenreData } = await supabase
       .from("series_genres")
       .select("genre:genre_id (name, slug)")
-      .eq("series_id", ep.series_id);
+      .eq("series_id", typedEp.series_id);
 
     genres =
-      seriesGenreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
+      (seriesGenreData as unknown as GenreRow[])
+        ?.map((g) => g.genre)
+        .filter((g): g is GenreRef => g !== null) ?? [];
   }
 
-  // Episode-level studio first, then fall back to series studio
-  const studioName =
-    (ep as any).studio?.name ?? (ep as any).series?.studio?.name ?? "";
-  const studioSlug =
-    (ep as any).studio?.slug ?? (ep as any).series?.studio?.slug ?? "";
-
-  await index.addDocuments([
-    {
-      id: ep.id,
-      title: ep.title,
-      regionalName: ep.regional_name ?? "",
-      slug: ep.slug,
-      thumbnailUrl: ep.thumbnail_url,
-      seriesTitle: (ep as any).series?.title ?? "",
-      seriesSlug: (ep as any).series?.slug ?? "",
-      studioName,
-      studioSlug,
-      genreNames: genres.map((g) => g.name),
-      genreSlugs: genres.map((g) => g.slug),
-      availableQualities: Object.keys(ep.stream_links ?? {}).map(Number).filter((n: number) => !isNaN(n)).sort((a: number, b: number) => a - b),
-      ratingAvg: ep.rating_avg,
-      ratingCount: ep.rating_count,
-      viewCount: ep.view_count,
-      likeCount: ep.like_count,
-      commentCount: ep.comment_count,
-      views7d: ep.views_7d,
-      uploadDate: ep.upload_date,
-      releaseDate: ep.release_date,
-      durationSeconds: ep.duration_seconds,
-      galleryUrls: ep.gallery_urls,
-      posterUrl: ep.poster_url,
-      streamLinks: ep.stream_links,
-      subtitleLinks: ep.subtitle_links,
-      downloadLinks: ep.download_links,
-      thumbnailPath: ep.thumbnail_path,
-      status: ep.status,
-      description: ep.meta_description ?? "",
-      year: ep.release_date
-        ? new Date(ep.release_date).getFullYear()
-        : null,
-    },
-  ]);
+  await index.addDocuments([episodeToSearchDocument(typedEp, genres)]);
 }
 
 /**

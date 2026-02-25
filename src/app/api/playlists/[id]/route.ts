@@ -50,7 +50,8 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Failed to update playlist:", error.message);
+    return NextResponse.json({ error: "Failed to update playlist" }, { status: 500 });
   }
 
   return NextResponse.json({ playlist: data });
@@ -96,7 +97,8 @@ export async function DELETE(
     .eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Failed to delete playlist:", error.message);
+    return NextResponse.json({ error: "Failed to delete playlist" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

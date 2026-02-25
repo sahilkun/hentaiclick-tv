@@ -14,7 +14,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/";
+  const rawRedirect = searchParams.get("redirect") ?? "/";
+  // Validate redirect is a safe relative path (prevent open redirect)
+  const redirect =
+    rawRedirect.startsWith("/") &&
+    !rawRedirect.startsWith("//") &&
+    !rawRedirect.includes("://")
+      ? rawRedirect
+      : "/";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

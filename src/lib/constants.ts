@@ -1,7 +1,14 @@
-export const CDN_STREAM_BASE =
-  process.env.NEXT_PUBLIC_CDN_STREAM_BASE || "https://cdn.rootserver1.com";
-export const CDN_DOWNLOAD_BASE =
-  process.env.NEXT_PUBLIC_CDN_DOWNLOAD_BASE || "https://cdn.rootserver1.com";
+// NEXT_PUBLIC_ vars must be referenced literally for Next.js build-time inlining.
+// Log a warning if they're missing (e.g. forgotten in a new deployment).
+export const CDN_STREAM_BASE = process.env.NEXT_PUBLIC_CDN_STREAM_BASE ?? "";
+export const CDN_DOWNLOAD_BASE = process.env.NEXT_PUBLIC_CDN_DOWNLOAD_BASE ?? "";
+
+if (typeof window === "undefined" && !CDN_STREAM_BASE) {
+  console.warn("WARNING: NEXT_PUBLIC_CDN_STREAM_BASE is not set. Media URLs will be broken.");
+}
+if (typeof window === "undefined" && !CDN_DOWNLOAD_BASE) {
+  console.warn("WARNING: NEXT_PUBLIC_CDN_DOWNLOAD_BASE is not set. Download URLs will be broken.");
+}
 
 export const QUALITY_LEVELS = [480, 720, 1080, 2160] as const;
 export type Quality = (typeof QUALITY_LEVELS)[number];

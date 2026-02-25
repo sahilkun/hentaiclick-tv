@@ -11,11 +11,22 @@ interface HistoryEntry {
   timestamp: number;
 }
 
-// localStorage watch history
+// localStorage watch history — validate shape to prevent crashes from corrupted data
 function getWatchHistory(): HistoryEntry[] {
   if (typeof window === "undefined") return [];
   try {
-    return JSON.parse(localStorage.getItem("watch_history") ?? "[]");
+    const raw = localStorage.getItem("watch_history");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (entry: unknown): entry is HistoryEntry =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as HistoryEntry).slug === "string" &&
+        typeof (entry as HistoryEntry).title === "string" &&
+        typeof (entry as HistoryEntry).timestamp === "number"
+    );
   } catch {
     return [];
   }

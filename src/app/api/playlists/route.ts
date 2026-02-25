@@ -23,7 +23,8 @@ export async function GET(request: Request) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Failed to fetch playlists:", error.message);
+    return NextResponse.json({ error: "Failed to load playlists" }, { status: 500 });
   }
 
   return NextResponse.json({ playlists: data ?? [] });
@@ -48,7 +49,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const slug = slugify(title, { lower: true, strict: true });
+  const baseSlug = slugify(title, { lower: true, strict: true });
+  const suffix = user.id.slice(0, 8);
+  const slug = `${baseSlug}-${suffix}`;
 
   const { data, error } = await supabase
     .from("playlists")
@@ -62,7 +65,8 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Failed to create playlist:", error.message);
+    return NextResponse.json({ error: "Failed to create playlist" }, { status: 500 });
   }
 
   return NextResponse.json({ playlist: data });

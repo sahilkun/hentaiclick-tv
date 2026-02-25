@@ -143,10 +143,8 @@ export function WatchPageClient({
     } catch {}
   }, [episode.id]);
 
-  // Record a view on page load
-  useEffect(() => {
-    handleView();
-  }, [handleView]);
+  // View is recorded by the VideoPlayer's onView callback after 30s of playback.
+  // No page-load view recording — avoids double-counting.
 
   const handleShare = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
@@ -163,8 +161,15 @@ export function WatchPageClient({
   const studioName = episode.studio?.name ?? episode.series?.studio?.name;
   const studioSlug = episode.studio?.slug ?? episode.series?.studio?.slug;
 
-  // Gallery: show 5 initially, rest on expand
-  const galleryImages = episode.gallery_urls ?? [];
+  // Gallery: show 5 initially, rest on expand. Filter to safe URLs only.
+  const galleryImages = (episode.gallery_urls ?? []).filter((url) => {
+    try {
+      const p = new URL(url);
+      return p.protocol === "http:" || p.protocol === "https:";
+    } catch {
+      return false;
+    }
+  });
   const GALLERY_PREVIEW = 5;
   const visibleGallery = showAllGallery
     ? galleryImages
