@@ -114,8 +114,47 @@ export default async function SeriesDetailPage({ params }: Props) {
     {} as Record<number, EpisodeWithRelations[]>
   );
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
+  const seriesJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CreativeWorkSeries",
+    name: series.title,
+    url: `${siteUrl}/series/${slug}`,
+    ...(series.description && { description: series.description }),
+    ...(series.cover_url && { image: series.cover_url }),
+    ...(series.year && { startDate: String(series.year) }),
+    ...(series.studio && {
+      productionCompany: {
+        "@type": "Organization",
+        name: series.studio.name,
+        url: `${siteUrl}/studios/${series.studio.slug}`,
+      },
+    }),
+    ...(genres.length > 0 && {
+      genre: genres.map((g: any) => g.name),
+    }),
+    numberOfEpisodes: episodes.length,
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+      ...(series.studio
+        ? [{ "@type": "ListItem", position: 2, name: series.studio.name, item: `${siteUrl}/studios/${series.studio.slug}` }]
+        : []),
+      { "@type": "ListItem", position: series.studio ? 3 : 2, name: series.title, item: `${siteUrl}/series/${slug}` },
+    ],
+  };
+
   return (
-    <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify([seriesJsonLd, breadcrumbJsonLd]) }}
+      />
+      <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
       <Breadcrumb items={[
         { label: "Home", href: "/" },
         ...(series.studio ? [{ label: series.studio.name, href: `/studios/${series.studio.slug}` }] : []),
@@ -233,5 +272,6 @@ export default async function SeriesDetailPage({ params }: Props) {
         </div>
       </div>
     </div>
+    </>
   );
 }

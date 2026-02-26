@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function ProtectedLayout({
   children,
@@ -9,7 +14,7 @@ export default function ProtectedLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1">{children}</main>
       <Footer />
     </div>
   );
