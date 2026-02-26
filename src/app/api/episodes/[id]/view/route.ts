@@ -3,13 +3,16 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import crypto from "crypto";
 import { syncEpisodeStats } from "@/lib/meilisearch/sync";
-import { isValidUUID } from "@/lib/validation";
+import { isValidUUID, validateOrigin } from "@/lib/validation";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = validateOrigin(_request);
+  if (originError) return originError;
+
   const { id: episodeId } = await params;
 
   if (!isValidUUID(episodeId)) {
@@ -27,10 +30,13 @@ export async function POST(
     return NextResponse.json({ ok: true }); // Silently accept
   }
 
-  const salt = process.env.IP_HASH_SALT ?? "default-view-salt";
+  const salt = process.env.IP_HASH_SALT;
+  if (!salt && process.env.NODE_ENV === "production") {
+    console.warn("IP_HASH_SALT is not set — using fallback. Set a strong secret in production.");
+  }
   const ipHash = crypto
     .createHash("sha256")
-    .update(ip + salt)
+    .update(ip + (salt ?? "default-view-salt"))
     .digest("hex");
 
   const supabase = await createClient();

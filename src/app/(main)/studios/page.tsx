@@ -1,10 +1,17 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Studios",
-  description: "Browse hentai by studio. Find episodes from your favorite studios.",
+  description: "Browse hentai by studio. Find episodes from your favorite studios in 4K, 1080p, and HD.",
+  openGraph: {
+    title: "Browse Studios | HentaiClick TV",
+    description: "Browse hentai by studio. Find episodes from your favorite studios.",
+    url: "/studios",
+  },
+  alternates: { canonical: "/studios" },
 };
 
 export const revalidate = 3600;
@@ -28,9 +35,11 @@ export default async function StudiosPage() {
             className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-6 text-center transition-colors hover:bg-accent"
           >
             {studio.logo_url && (
-              <img
+              <Image
                 src={studio.logo_url}
                 alt={studio.name}
+                width={48}
+                height={48}
                 className="h-12 w-12 rounded-full object-cover"
               />
             )}

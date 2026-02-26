@@ -82,11 +82,11 @@ export function PlaylistSidebar({
 
       if (!res.ok) {
         toast("Failed to remove", "error");
-        fetchPlaylist();
+        await fetchPlaylist();
       }
     } catch {
       toast("Failed to remove", "error");
-      fetchPlaylist();
+      await fetchPlaylist();
     }
   };
 

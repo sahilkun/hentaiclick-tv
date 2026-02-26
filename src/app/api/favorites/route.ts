@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncEpisodeStats } from "@/lib/meilisearch/sync";
-import { isValidUUID } from "@/lib/validation";
+import { isValidUUID, validateOrigin, parseJsonBody, isParseError } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
@@ -32,6 +32,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const ip = getClientIp(request);
   if (!rateLimit(`fav:${ip}`, 30, 60_000).success) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
@@ -46,7 +49,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { episode_id } = await request.json();
+  const body = await parseJsonBody<{ episode_id: string }>(request);
+  if (isParseError(body)) return body;
+  const { episode_id } = body;
 
   if (!episode_id || !isValidUUID(episode_id)) {
     return NextResponse.json({ error: "Invalid episode_id" }, { status: 400 });
@@ -64,10 +69,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Episode not found" }, { status: 404 });
   }
 
-  const { error } = await supabase.from("favorites").insert({
-    user_id: user.id,
-    episode_id,
-  });
+  const { error } = await supabase.from("favorites").upsert(
+    { user_id: user.id, episode_id },
+    { onConflict: "user_id,episode_id" }
+  );
 
   if (error) {
     console.error("Failed to add favorite:", error.message);
@@ -81,6 +86,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const ip = getClientIp(request);
   if (!rateLimit(`fav:${ip}`, 30, 60_000).success) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
@@ -95,7 +103,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { episode_id } = await request.json();
+  const delBody = await parseJsonBody<{ episode_id: string }>(request);
+  if (isParseError(delBody)) return delBody;
+  const { episode_id } = delBody;
 
   if (!episode_id || !isValidUUID(episode_id)) {
     return NextResponse.json({ error: "Invalid episode_id" }, { status: 400 });

@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import slugify from "slugify";
+import { isValidUUID, validateOrigin, stripHtmlTags, parseJsonBody, isParseError } from "@/lib/validation";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("user_id");
   const isPublic = searchParams.get("public") === "true";
+
+  if (userId && !isValidUUID(userId)) {
+    return NextResponse.json({ error: "Invalid user_id" }, { status: 400 });
+  }
 
   const supabase = await createClient();
 
@@ -31,6 +37,14 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
+  const ip = getClientIp(request);
+  if (!rateLimit(`playlist:${ip}`, 10, 60_000).success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,7 +54,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { title, is_public } = await request.json();
+  const body = await parseJsonBody<{ title: string; is_public?: boolean }>(request);
+  if (isParseError(body)) return body;
+  const { title, is_public } = body;
 
   if (!title || title.length > 100) {
     return NextResponse.json(
@@ -57,7 +73,7 @@ export async function POST(request: Request) {
     .from("playlists")
     .insert({
       user_id: user.id,
-      title,
+      title: stripHtmlTags(title.trim()),
       slug,
       is_public: is_public ?? false,
     })

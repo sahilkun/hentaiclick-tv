@@ -45,11 +45,12 @@ export default function LoginPage() {
   };
 
   const handleOAuth = async (provider: "google" | "discord") => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
+        redirectTo: `${origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
       },
     });
   };

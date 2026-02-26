@@ -74,9 +74,17 @@ export async function generateMetadata({
     result.playlist.user?.username ||
     "Unknown";
 
+  const description = `Watch ${result.playlist.episode_count} episodes in the "${result.playlist.title}" playlist by ${creatorName}.`;
+
   return {
     title: `${result.playlist.title} - Playlist by ${creatorName}`,
-    description: `Watch ${result.playlist.episode_count} episodes in the "${result.playlist.title}" playlist by ${creatorName}.`,
+    description,
+    openGraph: {
+      title: `${result.playlist.title} | HentaiClick TV`,
+      description,
+      url: `/playlists/${slug}`,
+    },
+    alternates: { canonical: `/playlists/${slug}` },
   };
 }
 

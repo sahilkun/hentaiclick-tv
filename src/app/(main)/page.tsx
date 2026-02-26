@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/constants";
 import {
   getEpisodes,
@@ -13,6 +14,18 @@ import { HomeTabs } from "./home-tabs";
 
 export const revalidate = 60;
 
+export const metadata: Metadata = {
+  description:
+    "Watch the highest quality hentai in 4K, 1080p, and HD for free. Stream and download episodes with subtitles. New releases added daily.",
+  openGraph: {
+    title: "HentaiClick TV - Watch Hentai in 4K, 1080p, HD Free",
+    description:
+      "Stream and download the best hentai in 4K, 1080p, and HD. New episodes added daily.",
+    url: "/",
+  },
+  alternates: { canonical: "/" },
+};
+
 export default async function HomePage() {
   const [
     recentlyUploaded,
@@ -24,14 +37,14 @@ export default async function HomePage() {
     genresWithPosters,
     latestComments,
   ] = await Promise.all([
-    getEpisodes("recently_uploaded", 12),
-    getEpisodes("recently_released", 12),
-    getEpisodes("trending", 12),
-    getEpisodes("most_views", 12),
-    getEpisodes("most_likes", 12),
-    getEpisodes("highest_rated", 12),
-    getGenresWithPosters(),
-    getLatestComments(10),
+    getEpisodes("recently_uploaded", 12).catch(() => []),
+    getEpisodes("recently_released", 12).catch(() => []),
+    getEpisodes("trending", 12).catch(() => []),
+    getEpisodes("most_views", 12).catch(() => []),
+    getEpisodes("most_likes", 12).catch(() => []),
+    getEpisodes("highest_rated", 12).catch(() => []),
+    getGenresWithPosters().catch(() => []),
+    getLatestComments(10).catch(() => []),
   ]);
 
   return (

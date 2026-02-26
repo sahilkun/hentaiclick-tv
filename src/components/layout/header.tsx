@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import {
   Shuffle,
@@ -111,14 +112,19 @@ export function Header() {
             <button
               type="button"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
+              aria-expanded={userMenuOpen}
+              aria-haspopup="true"
+              aria-label="User menu"
               className="flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm transition-colors hover:bg-accent"
             >
               {user ? (
                 <>
                   {user.avatar_url ? (
-                    <img
+                    <Image
                       src={user.avatar_url}
                       alt={user.display_name}
+                      width={24}
+                      height={24}
                       className="h-6 w-6 rounded-full object-cover"
                     />
                   ) : (
@@ -162,7 +168,7 @@ function UserDropdown({
 }) {
   if (!user) {
     return (
-      <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-lg">
+      <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-lg">
         <div className="px-3 py-2 text-sm text-muted-foreground">
           Guest / Please Login
         </div>
@@ -178,7 +184,7 @@ function UserDropdown({
   }
 
   return (
-    <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-lg">
+    <div role="menu" className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-lg">
       <div className="px-3 py-2">
         <p className="text-sm font-medium">{user.display_name}</p>
         <p className="text-xs text-muted-foreground">@{user.username}</p>
@@ -242,6 +248,7 @@ function DropdownLink({
     <Link
       href={href}
       onClick={onClick}
+      role="menuitem"
       className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
     >
       <Icon className="h-4 w-4" />

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { COMMENT_MAX_LENGTH } from "@/lib/constants";
 import { syncEpisodeStats } from "@/lib/meilisearch/sync";
-import { isValidUUID } from "@/lib/validation";
+import { isValidUUID, validateOrigin, stripHtmlTags, parseJsonBody, isParseError } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(request: Request) {
@@ -39,6 +39,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const ip = getClientIp(request);
   if (!rateLimit(`comment:${ip}`, 10, 60_000).success) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
@@ -53,7 +56,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { episode_id, parent_id, content } = await request.json();
+  const body = await parseJsonBody<{ episode_id: string; parent_id?: string; content: string }>(request);
+  if (isParseError(body)) return body;
+  const { episode_id, parent_id, content } = body;
 
   if (!episode_id || !isValidUUID(episode_id)) {
     return NextResponse.json({ error: "Invalid episode_id" }, { status: 400 });
@@ -105,7 +110,7 @@ export async function POST(request: Request) {
       episode_id,
       user_id: user.id,
       parent_id: parent_id ?? null,
-      content: content.trim(),
+      content: stripHtmlTags(content.trim()),
       status: "pending",
     })
     .select()

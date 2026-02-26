@@ -79,16 +79,18 @@ export function DownloadModal({
                 <div className="text-xs text-muted-foreground">
                   Verify captcha below
                 </div>
-              ) : (
-                <a
-                  href={getProxyDownloadUrl(
-                    episode.download_links,
-                    quality
-                  ) ?? "#"}
-                >
-                  <Button size="sm">Download</Button>
-                </a>
-              )}
+              ) : (() => {
+                const url = getProxyDownloadUrl(episode.download_links, quality);
+                return url ? (
+                  <a href={url}>
+                    <Button size="sm">Download</Button>
+                  </a>
+                ) : (
+                  <Button size="sm" variant="outline" disabled>
+                    Unavailable
+                  </Button>
+                );
+              })()}
             </div>
           ))}
 

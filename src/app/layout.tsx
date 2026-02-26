@@ -10,13 +10,27 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "HentaiClick TV - Watch Hentai in 4K, 1080p, HD Free",
     template: "%s | HentaiClick TV",
   },
   description:
     "Watch the highest quality hentai in 4K, 1080p, and HD for free. Stream and download episodes with subtitles.",
+  openGraph: {
+    type: "website",
+    siteName: "HentaiClick TV",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
+  alternates: {
+    canonical: "/",
+  },
 };
 
 export default function RootLayout({
@@ -29,10 +43,47 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>
           <AuthProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              {children}
+              <OrganizationJsonLd />
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
+  );
+}
+
+/** Organization + WebSite structured data for Google Knowledge Panel & Sitelinks */
+function OrganizationJsonLd() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${siteUrl}/#organization`,
+        name: "HentaiClick TV",
+        url: siteUrl,
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${siteUrl}/#website`,
+        url: siteUrl,
+        name: "HentaiClick TV",
+        publisher: { "@id": `${siteUrl}/#organization` },
+        potentialAction: {
+          "@type": "SearchAction",
+          target: { "@type": "EntryPoint", urlTemplate: `${siteUrl}/search?q={search_term_string}` },
+          "query-input": "required name=search_term_string",
+        },
+      },
+    ],
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
   );
 }

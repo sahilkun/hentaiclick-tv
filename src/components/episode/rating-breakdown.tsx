@@ -38,7 +38,9 @@ export function RatingBreakdown({
         setBreakdown(data.breakdown);
         setTotal(data.total);
       })
-      .catch(() => {});
+      .catch(() => {
+        // Breakdown is non-critical; keep default null state (shows skeleton)
+      });
   }, [episodeId]);
 
   const hasRating = ratingCount > 0;

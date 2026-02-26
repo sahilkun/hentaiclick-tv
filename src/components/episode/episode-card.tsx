@@ -2,15 +2,15 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Eye, Heart, MessageCircle, TriangleAlert } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { CircularRating } from "@/components/ui/circular-rating";
 import { deriveStreamQualities } from "@/lib/cdn";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
+import { WARNING_GENRES, genreColor } from "@/lib/genre-colors";
 import type { EpisodeWithRelations } from "@/types";
 import type { ViewMode } from "./episode-grid";
-
-const WARNING_GENRES = new Set(["gore", "horror", "scat", "rape"]);
 
 interface EpisodeCardProps {
   episode: EpisodeWithRelations;
@@ -30,11 +30,12 @@ export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: Epis
 
   const startGallery = useCallback(() => {
     if (!hasGallery || isPoster) return;
+    if (intervalRef.current) clearInterval(intervalRef.current);
     setHovering(true);
     setGalleryIndex(0);
     intervalRef.current = setInterval(() => {
       setGalleryIndex((prev) =>
-        prev + 1 >= episode.gallery_urls.length ? 0 : prev + 1
+        prev + 1 >= (episode.gallery_urls?.length ?? 0) ? 0 : prev + 1
       );
     }, 1500);
   }, [hasGallery, isPoster, episode.gallery_urls?.length]);
@@ -79,11 +80,12 @@ export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: Epis
         isPoster ? "aspect-[11/16]" : "aspect-video"
       )}>
         {imageSrc ? (
-          <img
+          <Image
             src={imageSrc}
             alt={episode.title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
@@ -126,7 +128,7 @@ export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: Epis
         {/* Gallery indicator dots (thumbnail mode only) */}
         {!isPoster && hovering && hasGallery && (
           <div className="absolute bottom-8 left-1/2 flex -translate-x-1/2 gap-1">
-            {episode.gallery_urls.slice(0, 8).map((_, i) => (
+            {(episode.gallery_urls ?? []).slice(0, 8).map((_, i) => (
               <div
                 key={i}
                 className={cn(
@@ -158,9 +160,7 @@ export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: Epis
                   key={genre.slug}
                   className={cn(
                     "inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wider transition-colors",
-                    isWarning
-                      ? "text-red-600 hover:bg-red-700 hover:text-white"
-                      : "text-foreground hover:bg-rose-700 hover:text-white"
+                    genreColor(genre.slug)
                   )}
                 >
                   {isWarning && <TriangleAlert className="h-3 w-3" />}

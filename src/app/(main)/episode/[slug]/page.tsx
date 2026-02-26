@@ -14,24 +14,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const episode = await getEpisodeBySlug(slug);
   if (!episode) return { title: "Episode Not Found" };
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
+  const desc =
+    episode.meta_description ??
+    `Watch ${episode.title} in HD quality on ${SITE_NAME}.`;
 
   return {
     title: `${episode.title}${episode.series ? ` — ${episode.series.title}` : ""}`,
-    description:
-      episode.meta_description ??
-      `Watch ${episode.title} in HD quality on ${SITE_NAME}.`,
+    description: desc,
     openGraph: {
       title: episode.title,
-      description:
-        episode.meta_description ??
-        `Watch ${episode.title} in HD quality on ${SITE_NAME}.`,
+      description: desc,
       type: "video.episode",
-      url: `${siteUrl}/episode/${episode.slug}`,
+      url: `/episode/${episode.slug}`,
       ...(episode.poster_url && {
         images: [{ url: episode.poster_url, width: 1280, height: 720 }],
       }),
     },
+    twitter: {
+      card: "summary_large_image",
+      title: episode.title,
+      description: desc,
+      ...(episode.poster_url && { images: [episode.poster_url] }),
+    },
+    alternates: { canonical: `/episode/${episode.slug}` },
   };
 }
 
@@ -87,13 +92,49 @@ export default async function EpisodeWatchPage({ params, searchParams }: Props) 
     getEpisodes("popular_weekly", 8),
   ]);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
   const jsonLd = getVideoJsonLd(episode);
+
+  const breadcrumb = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+      ...(episode.series
+        ? [
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: episode.series.title,
+              item: `${siteUrl}/series/${episode.series.slug}`,
+            },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: episode.title,
+              item: `${siteUrl}/episode/${episode.slug}`,
+            },
+          ]
+        : [
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: episode.title,
+              item: `${siteUrl}/episode/${episode.slug}`,
+            },
+          ]),
+    ],
+  };
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
       />
       <WatchPageClient
         episode={episode}

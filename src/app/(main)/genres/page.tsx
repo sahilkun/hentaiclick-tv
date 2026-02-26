@@ -4,7 +4,13 @@ import { getGenres } from "@/lib/queries/episodes";
 
 export const metadata: Metadata = {
   title: "Genres",
-  description: "Browse hentai by genre. Find your favorite categories.",
+  description: "Browse hentai by genre. Find your favorite categories and discover new ones. Stream in 4K, 1080p, and HD for free.",
+  openGraph: {
+    title: "Browse Genres | HentaiClick TV",
+    description: "Browse hentai by genre. Find your favorite categories and discover new ones.",
+    url: "/genres",
+  },
+  alternates: { canonical: "/genres" },
 };
 
 export const revalidate = 3600;

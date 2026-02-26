@@ -125,7 +125,7 @@ export default function SearchPage() {
     fetch("/api/studios")
       .then((r) => r.json())
       .then((studios: StudioItem[]) => setAllStudios(studios))
-      .catch(() => {});
+      .catch(() => setAllStudios([]));
 
     fetch("/api/genres")
       .then((r) => r.json())
@@ -155,7 +155,7 @@ export default function SearchPage() {
         setGenreGroups(groups);
         setStandaloneGenres(standalone);
       })
-      .catch(() => {});
+      .catch(() => setAllGenres([]));
   }, []);
 
   const toggleGenre = (slug: string) => {
@@ -270,7 +270,10 @@ export default function SearchPage() {
         );
         setTotalHits(data.totalHits);
       }
-    } catch {}
+    } catch {
+      setResults([]);
+      setTotalHits(0);
+    }
 
     setLoading(false);
   }, [query, sort, minRating, selectedYear, selectedGenres, blacklistedGenres, selectedStudios, page]);

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Download,
   Share2,
@@ -31,52 +32,10 @@ import { cn, formatNumber } from "@/lib/utils";
 import { getStreamableQualities } from "@/lib/access";
 import { deriveStreamQualities } from "@/lib/cdn";
 import { QUALITY_LABELS } from "@/lib/constants";
+import { WARNING_GENRES, genreColor } from "@/lib/genre-colors";
+import { isAllowedCdnUrl } from "@/lib/validation";
 import { useAuth } from "@/hooks/use-auth";
 import type { EpisodeWithRelations, UserContext } from "@/types";
-
-const WARNING_GENRES = new Set(["gore", "horror", "scat", "rape"]);
-
-/* ─── Genre color map (text + hover bg) ─── */
-const GENRE_COLORS: Record<string, { text: string; hover: string }> = {
-  "4k": { text: "text-emerald-400", hover: "hover:bg-emerald-500/35" },
-  vanilla: { text: "text-pink-400", hover: "hover:bg-pink-500/35" },
-  censored: { text: "text-yellow-500", hover: "hover:bg-yellow-500/35" },
-  uncensored: { text: "text-emerald-400", hover: "hover:bg-emerald-500/35" },
-  ntr: { text: "text-red-400", hover: "hover:bg-red-500/35" },
-  rape: { text: "text-red-600", hover: "hover:bg-red-700 hover:text-white" },
-  netorare: { text: "text-red-400", hover: "hover:bg-red-500/35" },
-  "48fps": { text: "text-cyan-400", hover: "hover:bg-cyan-500/35" },
-  milf: { text: "text-amber-300", hover: "hover:bg-amber-400/35" },
-  "big-boobs": { text: "text-orange-300", hover: "hover:bg-orange-400/35" },
-  creampie: { text: "text-rose-300", hover: "hover:bg-rose-400/35" },
-  ahegao: { text: "text-fuchsia-400", hover: "hover:bg-fuchsia-500/35" },
-  anal: { text: "text-violet-400", hover: "hover:bg-violet-500/35" },
-  "public-sex": { text: "text-sky-400", hover: "hover:bg-sky-500/35" },
-  harem: { text: "text-indigo-400", hover: "hover:bg-indigo-500/35" },
-  loli: { text: "text-pink-300", hover: "hover:bg-pink-400/35" },
-  shota: { text: "text-teal-400", hover: "hover:bg-teal-500/35" },
-  yuri: { text: "text-purple-400", hover: "hover:bg-purple-500/35" },
-  "school-girl": { text: "text-blue-400", hover: "hover:bg-blue-500/35" },
-  tentacle: { text: "text-lime-400", hover: "hover:bg-lime-500/35" },
-  femdom: { text: "text-rose-400", hover: "hover:bg-rose-500/35" },
-  incest: { text: "text-orange-400", hover: "hover:bg-orange-500/35" },
-  bondage: { text: "text-violet-300", hover: "hover:bg-violet-400/35" },
-  "x-ray": { text: "text-sky-300", hover: "hover:bg-sky-400/35" },
-  blowjob: { text: "text-pink-400", hover: "hover:bg-pink-500/35" },
-  threesome: { text: "text-amber-400", hover: "hover:bg-amber-500/35" },
-  gangbang: { text: "text-red-300", hover: "hover:bg-red-400/35" },
-  fantasy: { text: "text-indigo-300", hover: "hover:bg-indigo-400/35" },
-  gore: { text: "text-red-600", hover: "hover:bg-red-700 hover:text-white" },
-  horror: { text: "text-red-600", hover: "hover:bg-red-700 hover:text-white" },
-  scat: { text: "text-red-600", hover: "hover:bg-red-700 hover:text-white" },
-};
-
-function genreColor(slug: string) {
-  const colors = GENRE_COLORS[slug];
-  return colors
-    ? `${colors.text} ${colors.hover}`
-    : "text-foreground hover:bg-white/15";
-}
 
 /* ─── Props ─── */
 interface WatchPageClientProps {
@@ -111,7 +70,7 @@ export function WatchPageClient({
         return r.json();
       })
       .then((data) => setUserRating(data.score ?? null))
-      .catch(() => {});
+      .catch(() => setUserRating(null));
 
     fetch(`/api/favorites?episode_id=${episode.id}`)
       .then((r) => {
@@ -119,7 +78,7 @@ export function WatchPageClient({
         return r.json();
       })
       .then((data) => setIsFavorited(data.favorited))
-      .catch(() => {});
+      .catch(() => setIsFavorited(false));
   }, [user, episode.id]);
 
   const userContext: UserContext = {
@@ -161,15 +120,8 @@ export function WatchPageClient({
   const studioName = episode.studio?.name ?? episode.series?.studio?.name;
   const studioSlug = episode.studio?.slug ?? episode.series?.studio?.slug;
 
-  // Gallery: show 5 initially, rest on expand. Filter to safe URLs only.
-  const galleryImages = (episode.gallery_urls ?? []).filter((url) => {
-    try {
-      const p = new URL(url);
-      return p.protocol === "http:" || p.protocol === "https:";
-    } catch {
-      return false;
-    }
-  });
+  // Gallery: show 5 initially, rest on expand. Filter to allowed CDN URLs only.
+  const galleryImages = (episode.gallery_urls ?? []).filter(isAllowedCdnUrl);
   const GALLERY_PREVIEW = 5;
   const visibleGallery = showAllGallery
     ? galleryImages
@@ -199,11 +151,16 @@ export function WatchPageClient({
           <div className="rounded-lg bg-[rgba(38,38,38)] p-5">
             <div className="flex gap-4 pb-5 border-b border-[#54575c]">
               {episode.poster_url && (
-                <img
-                  src={episode.poster_url}
-                  alt={episode.title}
-                  className="hidden w-[150px] aspect-[11/16] rounded-lg object-cover shadow-md sm:block"
-                />
+                <div className="relative hidden w-[150px] aspect-[11/16] shrink-0 overflow-hidden rounded-lg shadow-md sm:block">
+                  <Image
+                    src={episode.poster_url}
+                    alt={episode.title}
+                    fill
+                    sizes="150px"
+                    className="object-cover"
+                    priority
+                  />
+                </div>
               )}
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold text-primary sm:text-2xl">

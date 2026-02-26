@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Eye, Heart, MessageCircle } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { deriveStreamQualities } from "@/lib/cdn";
@@ -28,11 +29,12 @@ export function SidebarCard({ episode, isCurrent }: SidebarCardProps) {
       {/* Thumbnail */}
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
         {episode.thumbnail_url ? (
-          <img
+          <Image
             src={episode.thumbnail_url}
             alt={episode.title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover/card:scale-105"
-            loading="lazy"
+            fill
+            sizes="(max-width: 1280px) 50vw, 340px"
+            className="object-cover transition-transform duration-300 group-hover/card:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-xs">

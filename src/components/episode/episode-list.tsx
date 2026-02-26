@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { formatDuration, formatNumber } from "@/lib/utils";
 import { Eye } from "lucide-react";
@@ -56,11 +57,12 @@ export function EpisodeList({
                   {/* Thumbnail */}
                   <div className="relative h-16 w-28 shrink-0 overflow-hidden rounded bg-muted">
                     {ep.thumbnail_url && (
-                      <img
+                      <Image
                         src={ep.thumbnail_url}
                         alt={ep.title}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
+                        fill
+                        sizes="112px"
+                        className="object-cover"
                       />
                     )}
                     {ep.duration_seconds > 0 && (

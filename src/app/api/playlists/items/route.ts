@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isValidUUID, validateOrigin, parseJsonBody, isParseError } from "@/lib/validation";
 
 // PATCH: Reorder episode (move up/down)
 export async function PATCH(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -12,7 +16,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { playlist_id, episode_id, direction } = await request.json();
+  const patchBody = await parseJsonBody<{ playlist_id: string; episode_id: string; direction: string }>(request);
+  if (isParseError(patchBody)) return patchBody;
+  const { playlist_id, episode_id, direction } = patchBody;
+
+  if (!playlist_id || !isValidUUID(playlist_id) || !episode_id || !isValidUUID(episode_id)) {
+    return NextResponse.json({ error: "Invalid playlist_id or episode_id" }, { status: 400 });
+  }
 
   if (!["up", "down"].includes(direction)) {
     return NextResponse.json({ error: "Invalid direction" }, { status: 400 });
@@ -109,6 +119,9 @@ export async function GET(request: Request) {
 
 // POST: Add episode to playlist
 export async function POST(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -118,7 +131,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { playlist_id, episode_id } = await request.json();
+  const postBody = await parseJsonBody<{ playlist_id: string; episode_id: string }>(request);
+  if (isParseError(postBody)) return postBody;
+  const { playlist_id, episode_id } = postBody;
+
+  if (!playlist_id || !isValidUUID(playlist_id) || !episode_id || !isValidUUID(episode_id)) {
+    return NextResponse.json({ error: "Invalid playlist_id or episode_id" }, { status: 400 });
+  }
 
   // Verify user owns the playlist
   const { data: playlist } = await supabase
@@ -144,16 +163,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Episode not found" }, { status: 404 });
   }
 
-  // Get next position
-  const { count: posCount } = await supabase
+  // Get max position to avoid race condition (concurrent inserts won't collide
+  // on position since we use max+1, and the unique constraint on
+  // (playlist_id, episode_id) prevents true duplicates)
+  const { data: maxPosRow } = await supabase
     .from("playlist_episodes")
-    .select("*", { count: "exact", head: true })
-    .eq("playlist_id", playlist_id);
+    .select("position")
+    .eq("playlist_id", playlist_id)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const nextPosition = (maxPosRow?.position ?? 0) + 1;
 
   const { error } = await supabase.from("playlist_episodes").insert({
     playlist_id,
     episode_id,
-    position: (posCount ?? 0) + 1,
+    position: nextPosition,
   });
 
   if (error) {
@@ -166,7 +192,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to add episode" }, { status: 400 });
   }
 
-  // Recount after insert to avoid race conditions
+  // Recount after insert for accurate episode_count
   const { count: newCount } = await supabase
     .from("playlist_episodes")
     .select("*", { count: "exact", head: true })
@@ -182,6 +208,9 @@ export async function POST(request: Request) {
 
 // DELETE: Remove episode from playlist
 export async function DELETE(request: Request) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -191,7 +220,13 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { playlist_id, episode_id } = await request.json();
+  const delBody = await parseJsonBody<{ playlist_id: string; episode_id: string }>(request);
+  if (isParseError(delBody)) return delBody;
+  const { playlist_id, episode_id } = delBody;
+
+  if (!playlist_id || !isValidUUID(playlist_id) || !episode_id || !isValidUUID(episode_id)) {
+    return NextResponse.json({ error: "Invalid playlist_id or episode_id" }, { status: 400 });
+  }
 
   // Verify user owns the playlist
   const { data: playlist } = await supabase

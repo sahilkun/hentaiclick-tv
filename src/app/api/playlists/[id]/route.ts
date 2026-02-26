@@ -1,12 +1,27 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isValidUUID, validateOrigin, stripHtmlTags, parseJsonBody, isParseError } from "@/lib/validation";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // PATCH: Update playlist (title, is_public)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
+  const ip = getClientIp(request);
+  if (!rateLimit(`playlist:${ip}`, 20, 60_000).success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { id } = await params;
+
+  if (!isValidUUID(id)) {
+    return NextResponse.json({ error: "Invalid playlist ID" }, { status: 400 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,11 +43,12 @@ export async function PATCH(
     return NextResponse.json({ error: "Playlist not found" }, { status: 404 });
   }
 
-  const body = await request.json();
+  const body = await parseJsonBody<{ title?: string; is_public?: boolean }>(request);
+  if (isParseError(body)) return body;
   const updates: Record<string, unknown> = {};
 
   if (typeof body.title === "string" && body.title.trim()) {
-    updates.title = body.title.trim().slice(0, 100);
+    updates.title = stripHtmlTags(body.title.trim()).slice(0, 100);
   }
   if (typeof body.is_public === "boolean") {
     updates.is_public = body.is_public;
@@ -62,7 +78,20 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = validateOrigin(_request);
+  if (originError) return originError;
+
+  const ip = getClientIp(_request);
+  if (!rateLimit(`playlist:${ip}`, 20, 60_000).success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { id } = await params;
+
+  if (!isValidUUID(id)) {
+    return NextResponse.json({ error: "Invalid playlist ID" }, { status: 400 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -84,13 +113,18 @@ export async function DELETE(
     return NextResponse.json({ error: "Playlist not found" }, { status: 404 });
   }
 
-  // Delete playlist episodes first
-  await supabase
+  // Delete playlist episodes first — abort if this fails to prevent orphaned items
+  const { error: itemsError } = await supabase
     .from("playlist_episodes")
     .delete()
     .eq("playlist_id", id);
 
-  // Delete the playlist
+  if (itemsError) {
+    console.error("Failed to delete playlist episodes:", itemsError.message);
+    return NextResponse.json({ error: "Failed to delete playlist" }, { status: 500 });
+  }
+
+  // Delete the playlist only after items are successfully removed
   const { error } = await supabase
     .from("playlists")
     .delete()

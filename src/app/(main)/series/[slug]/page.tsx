@@ -1,11 +1,31 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { EpisodeCarousel } from "@/components/episode/episode-carousel";
 import { getEpisodes } from "@/lib/queries/episodes";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import type { EpisodeWithRelations } from "@/types";
+
+interface StudioRef {
+  name: string;
+  slug: string;
+}
+
+interface SeriesWithStudio {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  cover_url?: string | null;
+  year?: number | null;
+  status: string;
+  studio?: StudioRef | null;
+  [key: string]: unknown;
+}
 
 export const revalidate = 60;
 
@@ -13,18 +33,33 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
   const { data: series } = await supabase
     .from("series")
-    .select("title, meta_description")
+    .select("title, meta_description, cover_url")
     .eq("slug", slug)
     .single();
 
+  if (!series) return { title: "Series Not Found" };
+
+  const description =
+    series.meta_description ||
+    `Watch all episodes of ${series.title} in HD quality. Stream for free on HentaiClick TV.`;
+
   return {
-    title: series ? series.title : "Series Not Found",
-    description: series?.meta_description,
+    title: series.title,
+    description,
+    openGraph: {
+      title: `${series.title} | HentaiClick TV`,
+      description,
+      url: `/series/${slug}`,
+      ...(series.cover_url && {
+        images: [{ url: series.cover_url, width: 300, height: 430 }],
+      }),
+    },
+    alternates: { canonical: `/series/${slug}` },
   };
 }
 
@@ -32,7 +67,7 @@ export default async function SeriesDetailPage({ params }: Props) {
   const { slug } = await params;
   const supabase = await createClient();
 
-  const { data: series } = await supabase
+  const { data: rawSeries } = await supabase
     .from("series")
     .select(
       `*, studio:studio_id (name, slug)`
@@ -40,7 +75,9 @@ export default async function SeriesDetailPage({ params }: Props) {
     .eq("slug", slug)
     .single();
 
-  if (!series) notFound();
+  if (!rawSeries) notFound();
+
+  const series = rawSeries as unknown as SeriesWithStudio;
 
   // Fetch genres
   const { data: genreData } = await supabase
@@ -79,29 +116,39 @@ export default async function SeriesDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
+      <Breadcrumb items={[
+        { label: "Home", href: "/" },
+        ...(series.studio ? [{ label: series.studio.name, href: `/studios/${series.studio.slug}` }] : []),
+        { label: series.title },
+      ]} />
       <div className="flex flex-col gap-8 lg:flex-row">
         {/* Main content */}
         <div className="flex-1">
           {/* Header */}
           <div className="flex gap-4">
             {series.cover_url && (
-              <img
-                src={series.cover_url}
-                alt={series.title}
-                className="hidden h-48 w-36 rounded-lg object-cover sm:block"
-              />
+              <div className="relative hidden h-48 w-36 shrink-0 overflow-hidden rounded-lg sm:block">
+                <Image
+                  src={series.cover_url}
+                  alt={series.title}
+                  fill
+                  sizes="144px"
+                  className="object-cover"
+                  priority
+                />
+              </div>
             )}
             <div>
               <h1 className="text-2xl font-bold">{series.title}</h1>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 {series.year && <span>{series.year}</span>}
                 <Badge variant="outline">{series.status}</Badge>
-                {(series as any).studio && (
+                {series.studio && (
                   <Link
-                    href={`/studios/${(series as any).studio.slug}`}
+                    href={`/studios/${series.studio.slug}`}
                     className="text-primary hover:underline"
                   >
-                    {(series as any).studio.name}
+                    {series.studio.name}
                   </Link>
                 )}
               </div>
@@ -167,11 +214,15 @@ export default async function SeriesDetailPage({ params }: Props) {
                 className="flex gap-2 rounded-lg border border-border p-2 transition-colors hover:bg-accent"
               >
                 {ep.thumbnail_url && (
-                  <img
-                    src={ep.thumbnail_url}
-                    alt={ep.title}
-                    className="h-14 w-24 shrink-0 rounded object-cover"
-                  />
+                  <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded">
+                    <Image
+                      src={ep.thumbnail_url}
+                      alt={ep.title}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  </div>
                 )}
                 <p className="line-clamp-2 text-xs font-medium">
                   {ep.title}

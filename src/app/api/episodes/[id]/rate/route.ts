@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncEpisodeStats } from "@/lib/meilisearch/sync";
-import { isValidUUID } from "@/lib/validation";
+import { isValidUUID, validateOrigin, parseJsonBody, isParseError } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(
@@ -32,6 +32,9 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const { id: episodeId } = await params;
 
   if (!isValidUUID(episodeId)) {
@@ -52,7 +55,9 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { score } = await request.json();
+  const body = await parseJsonBody<{ score: number }>(request);
+  if (isParseError(body)) return body;
+  const { score } = body;
 
   if (typeof score !== "number" || !Number.isInteger(score) || score < 1 || score > 10) {
     return NextResponse.json(
@@ -97,6 +102,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const originError = validateOrigin(request);
+  if (originError) return originError;
+
   const { id: episodeId } = await params;
 
   if (!isValidUUID(episodeId)) {
