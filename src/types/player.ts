@@ -1,5 +1,18 @@
 import type { Quality } from "@/lib/constants";
 
+export interface AudioTrackInfo {
+  id: number;
+  name: string;
+  lang: string;
+}
+
+export interface SubtitleTrackInfo {
+  id: string;
+  label: string;
+  lang: string;
+  url: string;
+}
+
 export interface PlayerState {
   playing: boolean;
   currentTime: number;
@@ -13,6 +26,8 @@ export interface PlayerState {
   subtitlesEnabled: boolean;
   subtitleTrack: string | null;
   audioTrack: number;
+  availableAudioTracks: AudioTrackInfo[];
+  availableSubtitles: SubtitleTrackInfo[];
   loading: boolean;
   error: string | null;
 }

@@ -28,6 +28,8 @@ interface PlayerControlsProps {
   onToggleMute: () => void;
   onChangeQuality: (q: Quality) => void;
   onChangeSpeed: (s: number) => void;
+  onChangeAudioTrack: (idx: number) => void;
+  onChangeSubtitleTrack: (lang: string | null) => void;
   onToggleFullscreen: () => void;
   onToggleSubtitles: () => void;
 }
@@ -43,12 +45,14 @@ export function PlayerControls({
   onToggleMute,
   onChangeQuality,
   onChangeSpeed,
+  onChangeAudioTrack,
+  onChangeSubtitleTrack,
   onToggleFullscreen,
   onToggleSubtitles,
 }: PlayerControlsProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsPanel, setSettingsPanel] = useState<
-    "main" | "quality" | "speed"
+    "main" | "quality" | "speed" | "audio" | "subtitles"
   >("main");
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState(0);
@@ -201,7 +205,14 @@ export function PlayerControls({
         {/* Subtitles toggle */}
         <button
           type="button"
-          onClick={onToggleSubtitles}
+          onClick={
+            state.availableSubtitles.length > 1
+              ? () => {
+                  setSettingsOpen(true);
+                  setSettingsPanel("subtitles");
+                }
+              : onToggleSubtitles
+          }
           className={cn(
             "flex h-8 w-8 items-center justify-center hover:text-primary",
             state.subtitlesEnabled ? "text-primary" : "text-white"
@@ -251,6 +262,35 @@ export function PlayerControls({
                       {state.playbackSpeed}x
                     </span>
                   </button>
+                  {state.availableAudioTracks.length > 1 && (
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
+                      onClick={() => setSettingsPanel("audio")}
+                    >
+                      <span>Audio</span>
+                      <span className="text-xs text-white/60">
+                        {state.availableAudioTracks[state.audioTrack]?.name ??
+                          "Default"}
+                      </span>
+                    </button>
+                  )}
+                  {state.availableSubtitles.length > 0 && (
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
+                      onClick={() => setSettingsPanel("subtitles")}
+                    >
+                      <span>Subtitles</span>
+                      <span className="text-xs text-white/60">
+                        {state.subtitleTrack
+                          ? state.availableSubtitles.find(
+                              (s) => s.lang === state.subtitleTrack
+                            )?.label ?? "On"
+                          : "Off"}
+                      </span>
+                    </button>
+                  )}
                 </>
               )}
 
@@ -322,6 +362,75 @@ export function PlayerControls({
                     >
                       <span>{s}x</span>
                       {state.playbackSpeed === s && (
+                        <span className="text-xs text-primary">●</span>
+                      )}
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {settingsPanel === "audio" && (
+                <>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10"
+                    onClick={() => setSettingsPanel("main")}
+                  >
+                    ← Audio
+                  </button>
+                  {state.availableAudioTracks.map((track) => (
+                    <button
+                      key={track.id}
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
+                      onClick={() => {
+                        onChangeAudioTrack(track.id);
+                        setSettingsOpen(false);
+                      }}
+                    >
+                      <span>{track.name}</span>
+                      {state.audioTrack === track.id && (
+                        <span className="text-xs text-primary">●</span>
+                      )}
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {settingsPanel === "subtitles" && (
+                <>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10"
+                    onClick={() => setSettingsPanel("main")}
+                  >
+                    ← Subtitles
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
+                    onClick={() => {
+                      onChangeSubtitleTrack(null);
+                      setSettingsOpen(false);
+                    }}
+                  >
+                    <span>Off</span>
+                    {!state.subtitleTrack && (
+                      <span className="text-xs text-primary">●</span>
+                    )}
+                  </button>
+                  {state.availableSubtitles.map((sub) => (
+                    <button
+                      key={sub.lang}
+                      type="button"
+                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
+                      onClick={() => {
+                        onChangeSubtitleTrack(sub.lang);
+                        setSettingsOpen(false);
+                      }}
+                    >
+                      <span>{sub.label}</span>
+                      {state.subtitleTrack === sub.lang && (
                         <span className="text-xs text-primary">●</span>
                       )}
                     </button>

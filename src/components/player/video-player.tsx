@@ -4,12 +4,14 @@ import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { TriangleAlert, RotateCcw } from "lucide-react";
 import Hls from "hls.js";
 import { cn } from "@/lib/utils";
-import { getStreamUrl, getSubtitleUrl, getThumbsUrl } from "@/lib/cdn";
+import { getStreamUrl, getThumbsUrl, getSubtitleEntries, LANGUAGE_LABELS } from "@/lib/cdn";
 import type { Quality } from "@/lib/constants";
 import {
   loadPreferences,
   savePreferences,
   type PlayerState,
+  type AudioTrackInfo,
+  type SubtitleTrackInfo,
 } from "@/types/player";
 import { PlayerControls } from "./player-controls";
 import { PlayerToast } from "./player-toast";
@@ -201,6 +203,8 @@ export function VideoPlayer({
     subtitlesEnabled: true,
     subtitleTrack: null,
     audioTrack: 0,
+    availableAudioTracks: [],
+    availableSubtitles: [],
     loading: true,
     error: null,
   });
@@ -257,6 +261,20 @@ export function VideoPlayer({
         if (restoreTime !== undefined) {
           video.currentTime = restoreTime;
         }
+      });
+
+      hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+        const tracks: AudioTrackInfo[] = hls.audioTracks.map((t, i) => ({
+          id: i,
+          name: LANGUAGE_LABELS[t.lang ?? ""] ?? t.name ?? `Track ${i + 1}`,
+          lang: t.lang ?? `track-${i}`,
+        }));
+        setState((s) => ({ ...s, availableAudioTracks: tracks }));
+        const prefs = loadPreferences();
+        const preferred = hls.audioTracks.findIndex(
+          (t) => t.lang === prefs.preferredAudioLang
+        );
+        if (preferred >= 0) hls.audioTrack = preferred;
       });
 
       hls.on(Hls.Events.ERROR, (_, data) => {
@@ -319,29 +337,44 @@ export function VideoPlayer({
       setThumbCues([]);
     }
 
-    // Load subtitles: fetch all VTT segments, concatenate, add as <track>
-    const subtitleUrl = getSubtitleUrl(subtitleLinks, quality);
-    if (!subtitleUrl) return;
-    loadSubtitleVtt(subtitleUrl).then((blobUrl) => {
-      // Stale load — a newer setupHls call has superseded this one
-      if (gen !== setupGenRef.current) {
-        if (blobUrl) URL.revokeObjectURL(blobUrl);
-        return;
-      }
-      if (!blobUrl) return;
-      subtitleBlobUrlRef.current = blobUrl;
-      const track = document.createElement("track");
-      track.kind = "subtitles";
-      track.label = "English";
-      track.srclang = "en";
-      track.src = blobUrl;
-      track.default = true;
-      video.appendChild(track);
-      // Apply current subtitle state
-      if (track.track) {
-        track.track.mode = state.subtitlesEnabled ? "showing" : "hidden";
-      }
-    });
+    // Load subtitle tracks
+    const entries = getSubtitleEntries(subtitleLinks);
+    if (entries.length > 0) {
+      const prefs = loadPreferences();
+      const subtitleInfos: SubtitleTrackInfo[] = entries.map((e) => ({
+        id: e.lang,
+        label: e.label,
+        lang: e.lang,
+        url: e.url,
+      }));
+      setState((s) => ({ ...s, availableSubtitles: subtitleInfos }));
+
+      // Load preferred language first (or first available)
+      const preferred =
+        entries.find((e) => e.lang === prefs.preferredSubtitleLang) ??
+        entries[0];
+      loadSubtitleVtt(preferred.url).then((blobUrl) => {
+        if (gen !== setupGenRef.current) {
+          if (blobUrl) URL.revokeObjectURL(blobUrl);
+          return;
+        }
+        if (!blobUrl) return;
+        subtitleBlobUrlRef.current = blobUrl;
+        const track = document.createElement("track");
+        track.kind = "subtitles";
+        track.label = preferred.label;
+        track.srclang = preferred.lang;
+        track.src = blobUrl;
+        track.default = true;
+        video.appendChild(track);
+        if (track.track) {
+          track.track.mode = state.subtitlesEnabled ? "showing" : "hidden";
+        }
+        setState((s) => ({ ...s, subtitleTrack: preferred.lang }));
+      });
+    } else {
+      setState((s) => ({ ...s, availableSubtitles: [] }));
+    }
   };
 
   // Initialize HLS
@@ -661,6 +694,70 @@ export function VideoPlayer({
     [showToast]
   );
 
+  const changeAudioTrack = useCallback(
+    (trackIndex: number) => {
+      const hls = hlsRef.current;
+      if (!hls) return;
+      hls.audioTrack = trackIndex;
+      setState((s) => ({ ...s, audioTrack: trackIndex }));
+      const lang = hls.audioTracks[trackIndex]?.lang;
+      if (lang) savePreferences({ preferredAudioLang: lang });
+      showToast(
+        `Audio: ${hls.audioTracks[trackIndex]?.name ?? `Track ${trackIndex + 1}`}`
+      );
+    },
+    [showToast]
+  );
+
+  const changeSubtitleTrack = useCallback(
+    (lang: string | null) => {
+      const video = videoRef.current;
+      if (!video) return;
+
+      // Remove existing track elements
+      const existing = video.querySelectorAll("track");
+      existing.forEach((t) => t.remove());
+      if (subtitleBlobUrlRef.current) {
+        URL.revokeObjectURL(subtitleBlobUrlRef.current);
+        subtitleBlobUrlRef.current = null;
+      }
+
+      if (!lang) {
+        setState((s) => ({
+          ...s,
+          subtitleTrack: null,
+          subtitlesEnabled: false,
+        }));
+        showToast("Subtitles OFF");
+        return;
+      }
+
+      const entry = state.availableSubtitles.find((sub) => sub.lang === lang);
+      if (!entry) return;
+
+      loadSubtitleVtt(entry.url).then((blobUrl) => {
+        if (!blobUrl) return;
+        subtitleBlobUrlRef.current = blobUrl;
+        const track = document.createElement("track");
+        track.kind = "subtitles";
+        track.label = entry.label;
+        track.srclang = entry.lang;
+        track.src = blobUrl;
+        track.default = true;
+        video.appendChild(track);
+        if (track.track) track.track.mode = "showing";
+        setState((s) => ({
+          ...s,
+          subtitleTrack: lang,
+          subtitlesEnabled: true,
+        }));
+        savePreferences({ preferredSubtitleLang: lang });
+        showToast(`Subtitles: ${entry.label}`);
+      });
+    },
+    [state.availableSubtitles, showToast]
+  );
+
   return (
     <div
       ref={containerRef}
@@ -737,6 +834,8 @@ export function VideoPlayer({
           onToggleMute={toggleMute}
           onChangeQuality={changeQuality}
           onChangeSpeed={changeSpeed}
+          onChangeAudioTrack={changeAudioTrack}
+          onChangeSubtitleTrack={changeSubtitleTrack}
           onToggleFullscreen={toggleFullscreen}
           onToggleSubtitles={toggleSubtitles}
         />
