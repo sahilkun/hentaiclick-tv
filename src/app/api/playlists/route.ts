@@ -33,7 +33,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Failed to load playlists" }, { status: 500 });
   }
 
-  return NextResponse.json({ playlists: data ?? [] });
+  const headers: HeadersInit = isPublic
+    ? { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" }
+    : { "Cache-Control": "private, no-store" };
+
+  return NextResponse.json({ playlists: data ?? [] }, { headers });
 }
 
 export async function POST(request: Request) {
