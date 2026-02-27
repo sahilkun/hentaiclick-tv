@@ -81,6 +81,7 @@ export function WatchPageClient({
   const [copied, setCopied] = useState(false);
   const [userRating, setUserRating] = useState<number | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [showPoster, setShowPoster] = useState(true);
 
   // Fetch user's existing rating and favorite status in parallel
   useEffect(() => {
@@ -151,7 +152,7 @@ export function WatchPageClient({
         <div className="flex-1 min-w-0 space-y-4">
 
           {/* ── Video Player ── */}
-          <div className="rounded-lg overflow-hidden bg-[rgba(38,38,38)]">
+          <div className="relative rounded-lg overflow-hidden bg-[rgba(38,38,38)]">
             <VideoPlayer
               streamLinks={episode.stream_links}
               subtitleLinks={episode.subtitle_links}
@@ -159,7 +160,25 @@ export function WatchPageClient({
               availableQualities={streamQualities}
               allowedQualities={allowedQualities}
               onView={handleView}
+              onFirstPlay={() => setShowPoster(false)}
             />
+            {/* Poster overlay — visible until first play */}
+            {showPoster && (episode.thumbnail_url || episode.poster_url) && (
+              <>
+                <img
+                  src={episode.thumbnail_url || episode.poster_url || ""}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
+                    <svg viewBox="0 0 24 24" className="ml-1 h-8 w-8 fill-white">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Header: Poster + Title + Meta */}

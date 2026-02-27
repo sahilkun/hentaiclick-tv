@@ -150,6 +150,7 @@ interface VideoPlayerProps {
   availableQualities: Quality[];
   allowedQualities: Quality[];
   onView?: () => void;
+  onFirstPlay?: () => void;
   className?: string;
 }
 
@@ -160,6 +161,7 @@ export function VideoPlayer({
   availableQualities,
   allowedQualities,
   onView,
+  onFirstPlay,
   className,
 }: VideoPlayerProps) {
   // Stable key for streamLinks to use as useEffect dependency
@@ -184,6 +186,7 @@ export function VideoPlayer({
   const [toast, setToast] = useState<string | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [thumbCues, setThumbCues] = useState<ThumbCue[]>([]);
+  const firstPlayFiredRef = useRef(false);
   const [state, setState] = useState<PlayerState>({
     playing: false,
     currentTime: 0,
@@ -411,7 +414,10 @@ export function VideoPlayer({
       }
     };
 
-    const onPlay = () => setState((s) => ({ ...s, playing: true }));
+    const onPlay = () => {
+      if (!firstPlayFiredRef.current) { firstPlayFiredRef.current = true; onFirstPlay?.(); }
+      setState((s) => ({ ...s, playing: true }));
+    };
     const onPause = () => setState((s) => ({ ...s, playing: false }));
     const onWaiting = () => setState((s) => ({ ...s, loading: true }));
     const onCanPlay = () => setState((s) => ({ ...s, loading: false }));
