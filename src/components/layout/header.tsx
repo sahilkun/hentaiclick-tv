@@ -245,7 +245,7 @@ function DropdownLink({
   onClick: () => void;
 }) {
   return (
-    <Link
+    <a
       href={href}
       onClick={onClick}
       role="menuitem"
@@ -253,7 +253,7 @@ function DropdownLink({
     >
       <Icon className="h-4 w-4" />
       {children}
-    </Link>
+    </a>
   );
 }
 

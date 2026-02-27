@@ -65,9 +65,11 @@ const nextConfig: NextConfig = {
               "img-src 'self' https: data:",
               "font-src 'self' data:",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com " +
+                "https://cdn.rootserver1.com https://cdn.rootserver2.com https://c6149z6464.r-cdn.com https://c6149z6465.r-cdn.com " +
+                (process.env.NEXT_PUBLIC_SUPABASE_URL ? process.env.NEXT_PUBLIC_SUPABASE_URL + " " : "") +
                 (process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? ""),
               "frame-src https://challenges.cloudflare.com",
-              "media-src 'self' https://cdn.rootserver1.com https://cdn.rootserver2.com https://c6149z6464.r-cdn.com https://c6149z6465.r-cdn.com",
+              "media-src 'self' blob: https://cdn.rootserver1.com https://cdn.rootserver2.com https://c6149z6464.r-cdn.com https://c6149z6465.r-cdn.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

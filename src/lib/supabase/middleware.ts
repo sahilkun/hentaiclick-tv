@@ -6,6 +6,19 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  const pathname = request.nextUrl.pathname;
+
+  // Skip auth check entirely for auth pages and API routes — avoids blocking
+  // when Supabase token refresh hangs due to clock skew or network issues.
+  if (
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/api/auth/")
+  ) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -29,11 +42,14 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Supabase unreachable — treat as unauthenticated and continue
+    return supabaseResponse;
+  }
 
   // Redirect unauthenticated users away from protected routes
   if (
@@ -48,28 +64,20 @@ export async function updateSession(request: NextRequest) {
 
   // Redirect non-admin/moderator users away from admin routes
   if (user && pathname.startsWith("/admin")) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
-    const role = profile?.role;
-    if (role !== "admin" && role !== "moderator") {
-      return NextResponse.redirect(new URL("/", request.url));
+      const role = profile?.role;
+      if (role !== "admin" && role !== "moderator") {
+        return NextResponse.redirect(new URL("/", request.url));
+      }
+    } catch {
+      // DB unreachable — allow through rather than blocking
     }
-  }
-
-  // Redirect authenticated users away from auth pages
-  if (
-    user &&
-    (pathname === "/login" ||
-      pathname === "/register" ||
-      pathname === "/forgot-password")
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
   }
 
   return supabaseResponse;

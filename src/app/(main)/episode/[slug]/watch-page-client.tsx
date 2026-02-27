@@ -189,7 +189,7 @@ export function WatchPageClient({
                   {episode.release_date && (
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
-                      {new Date(episode.release_date).toLocaleDateString()}
+                      {new Date(episode.release_date).toLocaleDateString("en-US")}
                     </span>
                   )}
                   {studioName && (

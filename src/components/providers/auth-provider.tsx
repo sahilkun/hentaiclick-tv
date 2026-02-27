@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AuthContext } from "@/hooks/use-auth";
 import type { Profile } from "@/types";
@@ -9,7 +8,6 @@ import type { Profile } from "@/types";
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -62,7 +60,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           session.user.id,
           session.access_token
         );
-        setUser(profile);
+        // Use profile if available, otherwise build a minimal fallback from session
+        setUser(
+          profile ?? {
+            id: session.user.id,
+            username: session.user.email?.split("@")[0] ?? "user",
+            display_name:
+              session.user.user_metadata?.display_name ??
+              session.user.email?.split("@")[0] ??
+              "User",
+            email: session.user.email ?? "",
+            role: "user",
+            avatar_url: session.user.user_metadata?.avatar_url ?? null,
+            bio: null,
+            created_at: session.user.created_at,
+            updated_at: session.user.updated_at ?? session.user.created_at,
+          } as Profile
+        );
         setLoading(false);
       } else if (event === "INITIAL_SESSION" && !session) {
         setLoading(false);
@@ -76,18 +90,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    if (
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
-      return;
-    }
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch("/api/auth/signout", { method: "POST" });
     setUser(null);
-    router.push("/");
-    router.refresh();
-  }, [router]);
+    window.location.href = "/";
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, signOut }}>
