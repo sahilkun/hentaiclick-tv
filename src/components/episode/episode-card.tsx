@@ -16,9 +16,10 @@ interface EpisodeCardProps {
   episode: EpisodeWithRelations;
   className?: string;
   viewMode?: ViewMode;
+  priority?: boolean;
 }
 
-export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: EpisodeCardProps) {
+export function EpisodeCard({ episode, className, viewMode = "thumbnail", priority }: EpisodeCardProps) {
   const [hovering, setHovering] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
@@ -67,6 +68,7 @@ export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: Epis
   return (
     <Link
       href={`/episode/${episode.slug}`}
+      prefetch={false}
       className={cn(
         "group block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-lg",
         className
@@ -86,6 +88,7 @@ export function EpisodeCard({ episode, className, viewMode = "thumbnail" }: Epis
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
+            priority={priority}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">

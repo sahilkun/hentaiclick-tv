@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { formatDistanceToNow } from "date-fns";
+import Image from "next/image";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { Reply, User, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommentForm } from "./comment-form";
@@ -145,9 +146,11 @@ function CommentItem({
         {/* Header */}
         <div className="flex items-center gap-2">
           {comment.user.avatar_url ? (
-            <img
+            <Image
               src={comment.user.avatar_url}
               alt={comment.user.display_name}
+              width={24}
+              height={24}
               className="h-6 w-6 rounded-full object-cover"
             />
           ) : (

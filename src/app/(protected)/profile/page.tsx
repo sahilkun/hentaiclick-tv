@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -60,9 +61,11 @@ export default function ProfilePage() {
       {/* Avatar */}
       <div className="mb-6 flex items-center gap-4">
         {user.avatar_url ? (
-          <img
+          <Image
             src={user.avatar_url}
             alt={user.display_name}
+            width={80}
+            height={80}
             className="h-20 w-20 rounded-full object-cover"
           />
         ) : (

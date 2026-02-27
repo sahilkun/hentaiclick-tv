@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { GenreWithPosters } from "@/lib/queries/episodes";
 
@@ -28,11 +29,12 @@ function GenreCard({ genre }: { genre: GenreWithPosters }) {
       {/* Stacked poster images (3 cards fanned out) */}
       {/* Left card – rotated -15deg */}
       {img1 ? (
-        <img
+        <Image
           src={img1}
           alt={genre.name}
+          width={128}
+          height={176}
           className="absolute w-32 h-44 rounded-lg object-cover shadow-md left-4 top-4 -rotate-[15deg] z-0"
-          loading="lazy"
         />
       ) : (
         <PlaceholderPoster className="absolute w-32 h-44 rounded-lg shadow-md left-4 top-4 -rotate-[15deg] z-0" />
@@ -40,11 +42,12 @@ function GenreCard({ genre }: { genre: GenreWithPosters }) {
 
       {/* Center card – straight */}
       {img2 ? (
-        <img
+        <Image
           src={img2}
           alt={genre.name}
+          width={128}
+          height={176}
           className="absolute w-32 h-44 rounded-lg object-cover shadow-lg top-4 left-1/2 -translate-x-1/2 z-10"
-          loading="lazy"
         />
       ) : (
         <PlaceholderPoster className="absolute w-32 h-44 rounded-lg shadow-lg top-4 left-1/2 -translate-x-1/2 z-10" />
@@ -52,11 +55,12 @@ function GenreCard({ genre }: { genre: GenreWithPosters }) {
 
       {/* Right card – rotated +15deg */}
       {img3 ? (
-        <img
+        <Image
           src={img3}
           alt={genre.name}
+          width={128}
+          height={176}
           className="absolute w-32 h-44 rounded-lg object-cover shadow-lg right-4 top-14 rotate-[15deg] z-20"
-          loading="lazy"
         />
       ) : (
         <PlaceholderPoster className="absolute w-32 h-44 rounded-lg shadow-lg right-4 top-14 rotate-[15deg] z-20" />

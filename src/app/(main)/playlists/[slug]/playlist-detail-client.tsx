@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ListVideo,
@@ -14,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { EpisodeGrid, type ViewMode } from "@/components/episode/episode-grid";
 import { cn, formatNumber } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import type { EpisodeWithRelations } from "@/types";
 
 interface PlaylistDetailClientProps {
@@ -52,9 +53,11 @@ export function PlaylistDetailClient({
         {/* Playlist icon / thumbnail */}
         <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-muted">
           {firstEpisode?.thumbnail_url ? (
-            <img
+            <Image
               src={firstEpisode.thumbnail_url}
               alt={playlist.title}
+              width={112}
+              height={112}
               className="h-full w-full rounded-lg object-cover"
             />
           ) : (

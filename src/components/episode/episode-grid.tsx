@@ -9,9 +9,10 @@ interface EpisodeGridProps {
   episodes: EpisodeWithRelations[];
   className?: string;
   viewMode?: ViewMode;
+  priorityCount?: number;
 }
 
-export function EpisodeGrid({ episodes, className, viewMode = "thumbnail" }: EpisodeGridProps) {
+export function EpisodeGrid({ episodes, className, viewMode = "thumbnail", priorityCount = 0 }: EpisodeGridProps) {
   if (episodes.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -30,8 +31,8 @@ export function EpisodeGrid({ episodes, className, viewMode = "thumbnail" }: Epi
         className
       )}
     >
-      {episodes.map((episode) => (
-        <EpisodeCard key={episode.id} episode={episode} viewMode={viewMode} />
+      {episodes.map((episode, i) => (
+        <EpisodeCard key={episode.id} episode={episode} viewMode={viewMode} priority={i < priorityCount} />
       ))}
     </div>
   );

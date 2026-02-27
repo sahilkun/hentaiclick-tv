@@ -1,6 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { User } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import type { LatestComment } from "@/lib/queries/episodes";
 
 interface LatestCommentsProps {
@@ -19,11 +20,12 @@ function CommentCard({ comment }: { comment: LatestComment }) {
         className="shrink-0 mr-5 relative transition ease-in-out hover:-translate-y-1 hover:scale-110 duration-300"
       >
         {posterSrc ? (
-          <img
+          <Image
             src={posterSrc}
             alt={episode.title}
+            width={120}
+            height={175}
             className="w-[120px] aspect-[11/16] rounded-lg object-cover object-center"
-            loading="lazy"
           />
         ) : (
           <div className="w-[120px] aspect-[11/16] rounded-lg bg-gradient-to-br from-primary/30 to-primary/10" />
@@ -39,9 +41,11 @@ function CommentCard({ comment }: { comment: LatestComment }) {
           {/* Avatar */}
           <div className="shrink-0">
             {user.avatar_url ? (
-              <img
+              <Image
                 src={user.avatar_url}
                 alt={user.display_name}
+                width={40}
+                height={40}
                 className="h-10 w-10 rounded-full object-cover"
               />
             ) : (

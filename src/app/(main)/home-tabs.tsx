@@ -44,7 +44,7 @@ export function HomeTabs({
             ))}
           </div>
 
-          <EpisodeGrid episodes={primarySections[primaryTab] ?? []} />
+          <EpisodeGrid episodes={primarySections[primaryTab] ?? []} priorityCount={4} />
 
           <div className="mt-8 flex justify-center">
             <Link

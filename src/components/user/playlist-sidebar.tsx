@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Play, Trash2, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -154,11 +155,12 @@ export function PlaylistSidebar({
               >
                 <div className="h-12 w-20 overflow-hidden bg-muted">
                   {episode.thumbnail_url ? (
-                    <img
+                    <Image
                       src={episode.thumbnail_url}
                       alt={episode.title}
+                      width={80}
+                      height={48}
                       className="h-full w-full object-cover"
-                      loading="lazy"
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">

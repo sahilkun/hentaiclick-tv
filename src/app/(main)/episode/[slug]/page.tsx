@@ -5,6 +5,8 @@ import { getAnonClient } from "@/lib/supabase/anon";
 import { SITE_NAME } from "@/lib/constants";
 import { WatchPageClient } from "./watch-page-client";
 
+export const revalidate = 300;
+
 export async function generateStaticParams() {
   const supabase = getAnonClient();
   const { data } = await supabase

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -156,9 +157,11 @@ export function SearchBar({ className }: { className?: string }) {
               )}
             >
               {result.thumbnailUrl && (
-                <img
+                <Image
                   src={result.thumbnailUrl}
                   alt=""
+                  width={64}
+                  height={40}
                   className="h-10 w-16 rounded object-cover"
                 />
               )}

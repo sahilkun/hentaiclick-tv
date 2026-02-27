@@ -17,7 +17,7 @@ import {
   ChevronUp,
   TriangleAlert,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { EpisodeList } from "@/components/episode/episode-list";
 import { SidebarCard } from "@/components/episode/sidebar-card";
 import { RatingPicker } from "@/components/user/rating-picker";
