@@ -88,12 +88,19 @@ export async function GET(request: Request) {
       sort: sort ? [sort] : undefined,
     });
 
-    return NextResponse.json({
-      hits: result.hits,
-      totalHits: result.estimatedTotalHits ?? 0,
-      limit,
-      offset,
-    });
+    return NextResponse.json(
+      {
+        hits: result.hits,
+        totalHits: result.estimatedTotalHits ?? 0,
+        limit,
+        offset,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch {
     return NextResponse.json({
       hits: [],

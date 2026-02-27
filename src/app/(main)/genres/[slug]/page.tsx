@@ -1,11 +1,18 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getAnonClient } from "@/lib/supabase/anon";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import type { EpisodeWithRelations } from "@/types";
 
-export const revalidate = 60;
+export const revalidate = 600;
+
+export async function generateStaticParams() {
+  const supabase = getAnonClient();
+  const { data } = await supabase.from("genres").select("slug");
+  return (data ?? []).map((g: any) => ({ slug: g.slug }));
+}
 
 interface Props {
   params: Promise<{ slug: string }>;

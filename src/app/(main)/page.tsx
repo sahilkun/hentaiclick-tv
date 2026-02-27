@@ -2,17 +2,15 @@ import { Suspense } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/constants";
-import {
-  getEpisodes,
-  getGenresWithPosters,
-  getLatestComments,
-} from "@/lib/queries/episodes";
 import { EpisodeGridSkeleton } from "@/components/episode/episode-grid";
-import { GenreCategories } from "@/components/genre/genre-categories";
-import { LatestComments } from "@/components/comments/latest-comments";
-import { HomeTabs } from "./home-tabs";
+import {
+  PrimaryEpisodeTabs,
+  SecondaryEpisodeTabs,
+  GenreCategoriesSection,
+  LatestCommentsSection,
+} from "./home-sections";
 
-export const revalidate = 60;
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   description:
@@ -26,27 +24,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-export default async function HomePage() {
-  const [
-    recentlyUploaded,
-    recentlyReleased,
-    topViewedWeekly,
-    mostViews,
-    mostLikes,
-    highestRated,
-    genresWithPosters,
-    latestComments,
-  ] = await Promise.all([
-    getEpisodes("recently_uploaded", 12).catch(() => []),
-    getEpisodes("recently_released", 12).catch(() => []),
-    getEpisodes("trending", 12).catch(() => []),
-    getEpisodes("most_views", 12).catch(() => []),
-    getEpisodes("most_likes", 12).catch(() => []),
-    getEpisodes("highest_rated", 12).catch(() => []),
-    getGenresWithPosters().catch(() => []),
-    getLatestComments(10).catch(() => []),
-  ]);
-
+export default function HomePage() {
   return (
     <div>
       {/* Hero Banner */}
@@ -75,37 +53,33 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Tabbed Episode Sections */}
+      {/* Primary Tabs — streams in first */}
       <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
         <Suspense fallback={<EpisodeGridSkeleton />}>
-          <HomeTabs
-            primarySections={{
-              "Recently Uploaded": recentlyUploaded,
-              "Recently Released": recentlyReleased,
-              "Top Viewed This Week": topViewedWeekly,
-            }}
-            secondarySections={{
-              "Most Views": mostViews,
-              "Most Favorited": mostLikes,
-              "Highest Rated - Weekly": highestRated,
-            }}
-          />
+          <PrimaryEpisodeTabs />
         </Suspense>
       </section>
 
-      {/* Categories – stacked poster cards */}
-      {genresWithPosters.length > 0 && (
-        <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
-          <GenreCategories genres={genresWithPosters} />
-        </section>
-      )}
+      {/* Secondary Tabs — streams independently */}
+      <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
+        <Suspense fallback={<EpisodeGridSkeleton />}>
+          <SecondaryEpisodeTabs />
+        </Suspense>
+      </section>
 
-      {/* Latest Comments */}
-      {latestComments.length > 0 && (
-        <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
-          <LatestComments comments={latestComments} />
-        </section>
-      )}
+      {/* Categories — streams independently */}
+      <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
+        <Suspense fallback={null}>
+          <GenreCategoriesSection />
+        </Suspense>
+      </section>
+
+      {/* Latest Comments — streams last */}
+      <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
+        <Suspense fallback={null}>
+          <LatestCommentsSection />
+        </Suspense>
+      </section>
     </div>
   );
 }

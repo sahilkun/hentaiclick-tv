@@ -2,11 +2,18 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getAnonClient } from "@/lib/supabase/anon";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import type { EpisodeWithRelations } from "@/types";
 
-export const revalidate = 60;
+export const revalidate = 600;
+
+export async function generateStaticParams() {
+  const supabase = getAnonClient();
+  const { data } = await supabase.from("studios").select("slug");
+  return (data ?? []).map((s: any) => ({ slug: s.slug }));
+}
 
 interface Props {
   params: Promise<{ slug: string }>;

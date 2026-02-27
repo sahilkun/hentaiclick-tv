@@ -47,36 +47,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    const buildFallbackProfile = (session: { user: { id: string; email?: string | null; user_metadata?: Record<string, any>; created_at: string; updated_at?: string | null }; access_token: string }): Profile => ({
+      id: session.user.id,
+      username: session.user.email?.split("@")[0] ?? "user",
+      display_name:
+        session.user.user_metadata?.display_name ??
+        session.user.email?.split("@")[0] ??
+        "User",
+      role: "user",
+      avatar_url: session.user.user_metadata?.avatar_url ?? null,
+      bio: "",
+      is_premium: false,
+      blacklisted_genres: [],
+      created_at: session.user.created_at,
+      updated_at: session.user.updated_at ?? session.user.created_at,
+    });
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (
-        (event === "INITIAL_SESSION" ||
-          event === "SIGNED_IN" ||
-          event === "TOKEN_REFRESHED") &&
+      if (event === "INITIAL_SESSION" && session?.user) {
+        // Set minimal user immediately (no DB call) so loading resolves fast
+        setUser(buildFallbackProfile(session));
+        setLoading(false);
+        // Upgrade to full profile in background (non-blocking)
+        fetchProfile(session.user.id, session.access_token).then(
+          (profile) => {
+            if (profile) setUser(profile);
+          }
+        );
+      } else if (
+        (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") &&
         session?.user
       ) {
         const profile = await fetchProfile(
           session.user.id,
           session.access_token
         );
-        // Use profile if available, otherwise build a minimal fallback from session
-        setUser(
-          profile ?? {
-            id: session.user.id,
-            username: session.user.email?.split("@")[0] ?? "user",
-            display_name:
-              session.user.user_metadata?.display_name ??
-              session.user.email?.split("@")[0] ??
-              "User",
-            email: session.user.email ?? "",
-            role: "user",
-            avatar_url: session.user.user_metadata?.avatar_url ?? null,
-            bio: null,
-            created_at: session.user.created_at,
-            updated_at: session.user.updated_at ?? session.user.created_at,
-          } as Profile
-        );
+        setUser(profile ?? buildFallbackProfile(session));
         setLoading(false);
       } else if (event === "INITIAL_SESSION" && !session) {
         setLoading(false);

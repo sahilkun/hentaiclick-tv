@@ -3,12 +3,22 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getAnonClient } from "@/lib/supabase/anon";
 import { Badge } from "@/components/ui/badge";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { EpisodeCarousel } from "@/components/episode/episode-carousel";
 import { getEpisodes } from "@/lib/queries/episodes";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import type { EpisodeWithRelations } from "@/types";
+
+export async function generateStaticParams() {
+  const supabase = getAnonClient();
+  const { data } = await supabase
+    .from("series")
+    .select("slug")
+    .limit(100);
+  return (data ?? []).map((s: any) => ({ slug: s.slug }));
+}
 
 interface StudioRef {
   name: string;
@@ -27,7 +37,7 @@ interface SeriesWithStudio {
   [key: string]: unknown;
 }
 
-export const revalidate = 60;
+export const revalidate = 300;
 
 interface Props {
   params: Promise<{ slug: string }>;

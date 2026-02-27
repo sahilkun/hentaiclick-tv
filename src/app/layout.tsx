@@ -40,6 +40,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://cdn.rootserver1.com" />
+        <link rel="preconnect" href="https://cdn.rootserver2.com" />
+        <link rel="dns-prefetch" href="https://c6149z6464.r-cdn.com" />
+        <link rel="dns-prefetch" href="https://c6149z6465.r-cdn.com" />
+      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <a
           href="#main-content"

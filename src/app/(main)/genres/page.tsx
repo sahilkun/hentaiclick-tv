@@ -28,7 +28,7 @@ export default async function GenresPage() {
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: genres.length,
-      itemListElement: genres.map((genre, i) => ({
+      itemListElement: genres.map((genre: any, i: number) => ({
         "@type": "ListItem",
         position: i + 1,
         name: genre.name,
@@ -47,7 +47,7 @@ export default async function GenresPage() {
         <h1 className="mb-6 text-2xl font-bold">Genres</h1>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {genres.map((genre) => (
+          {genres.map((genre: any) => (
             <Link
               key={genre.id}
               href={`/genres/${genre.slug}`}

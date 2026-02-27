@@ -1,8 +1,20 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getEpisodeBySlug, getEpisodesBySeries, getEpisodesByStudio, getEpisodes } from "@/lib/queries/episodes";
+import { getAnonClient } from "@/lib/supabase/anon";
 import { SITE_NAME } from "@/lib/constants";
 import { WatchPageClient } from "./watch-page-client";
+
+export async function generateStaticParams() {
+  const supabase = getAnonClient();
+  const { data } = await supabase
+    .from("episodes")
+    .select("slug")
+    .eq("status", "published")
+    .order("view_count", { ascending: false })
+    .limit(200);
+  return (data ?? []).map((ep: any) => ({ slug: ep.slug }));
+}
 
 interface Props {
   params: Promise<{ slug: string }>;

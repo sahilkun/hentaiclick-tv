@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { getAnonClient } from "@/lib/supabase/anon";
 import type { EpisodeWithRelations } from "@/types";
 
 type SortOption =
@@ -11,11 +12,13 @@ type SortOption =
   | "popular_monthly"
   | "highest_rated";
 
-export async function getEpisodes(
-  sort: SortOption = "recently_uploaded",
-  limit: number = 12
+/* ─── Episodes (cached) ─── */
+
+async function fetchEpisodes(
+  sort: SortOption,
+  limit: number
 ): Promise<EpisodeWithRelations[]> {
-  const supabase = await createClient();
+  const supabase = getAnonClient();
 
   let query = supabase
     .from("episodes")
@@ -118,10 +121,24 @@ export async function getEpisodes(
   })) as unknown as EpisodeWithRelations[];
 }
 
-export async function getEpisodeBySlug(
+export async function getEpisodes(
+  sort: SortOption = "recently_uploaded",
+  limit: number = 12
+): Promise<EpisodeWithRelations[]> {
+  const cached = unstable_cache(
+    () => fetchEpisodes(sort, limit),
+    ["episodes", sort, String(limit)],
+    { revalidate: 300, tags: ["episodes"] }
+  );
+  return cached();
+}
+
+/* ─── Episode by slug (cached) ─── */
+
+async function fetchEpisodeBySlug(
   slug: string
 ): Promise<EpisodeWithRelations | null> {
-  const supabase = await createClient();
+  const supabase = getAnonClient();
 
   const { data, error } = await supabase
     .from("episodes")
@@ -171,11 +188,24 @@ export async function getEpisodeBySlug(
   return { ...data, genres } as unknown as EpisodeWithRelations;
 }
 
-export async function getEpisodesBySeries(
+export async function getEpisodeBySlug(
+  slug: string
+): Promise<EpisodeWithRelations | null> {
+  const cached = unstable_cache(
+    () => fetchEpisodeBySlug(slug),
+    ["episode", slug],
+    { revalidate: 300, tags: ["episodes"] }
+  );
+  return cached();
+}
+
+/* ─── Episodes by series (cached) ─── */
+
+async function fetchEpisodesBySeries(
   seriesId: string,
   excludeEpisodeId?: string
 ): Promise<EpisodeWithRelations[]> {
-  const supabase = await createClient();
+  const supabase = getAnonClient();
 
   let query = supabase
     .from("episodes")
@@ -193,12 +223,29 @@ export async function getEpisodesBySeries(
   return (data ?? []) as unknown as EpisodeWithRelations[];
 }
 
-export async function getEpisodesByStudio(
+export async function getEpisodesBySeries(
+  seriesId: string,
+  excludeEpisodeId?: string
+): Promise<EpisodeWithRelations[]> {
+  const cacheKey = excludeEpisodeId
+    ? ["series-episodes", seriesId, excludeEpisodeId]
+    : ["series-episodes", seriesId];
+  const cached = unstable_cache(
+    () => fetchEpisodesBySeries(seriesId, excludeEpisodeId),
+    cacheKey,
+    { revalidate: 300, tags: ["episodes"] }
+  );
+  return cached();
+}
+
+/* ─── Episodes by studio (cached) ─── */
+
+async function fetchEpisodesByStudio(
   studioId: string,
   excludeEpisodeId?: string,
   limit: number = 10
 ): Promise<EpisodeWithRelations[]> {
-  const supabase = await createClient();
+  const supabase = getAnonClient();
 
   // Direct studio_id on episodes
   let query = supabase
@@ -235,7 +282,7 @@ export async function getEpisodesByStudio(
 
   if (!seriesData || seriesData.length === 0) return [];
 
-  const seriesIds = seriesData.map((s) => s.id);
+  const seriesIds = seriesData.map((s: any) => s.id);
   let fallbackQuery = supabase
     .from("episodes")
     .select(
@@ -260,14 +307,41 @@ export async function getEpisodesByStudio(
   return (fallbackData ?? []) as unknown as EpisodeWithRelations[];
 }
 
-export async function getGenres() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("genres")
-    .select("*")
-    .order("name", { ascending: true });
-  return data ?? [];
+export async function getEpisodesByStudio(
+  studioId: string,
+  excludeEpisodeId?: string,
+  limit: number = 10
+): Promise<EpisodeWithRelations[]> {
+  const cacheKey = excludeEpisodeId
+    ? ["studio-episodes", studioId, excludeEpisodeId, String(limit)]
+    : ["studio-episodes", studioId, String(limit)];
+  const cached = unstable_cache(
+    () => fetchEpisodesByStudio(studioId, excludeEpisodeId, limit),
+    cacheKey,
+    { revalidate: 300, tags: ["episodes"] }
+  );
+  return cached();
 }
+
+/* ─── Genres (cached) ─── */
+
+export async function getGenres() {
+  const cached = unstable_cache(
+    async () => {
+      const supabase = getAnonClient();
+      const { data } = await supabase
+        .from("genres")
+        .select("*")
+        .order("name", { ascending: true });
+      return data ?? [];
+    },
+    ["genres"],
+    { revalidate: 3600, tags: ["genres"] }
+  );
+  return cached();
+}
+
+/* ─── Genre posters (cached, batched — no N+1) ─── */
 
 /** Featured genre slugs shown in the Categories section on the homepage */
 const FEATURED_GENRE_SLUGS = [
@@ -290,12 +364,8 @@ export interface GenreWithPosters {
   posters: string[]; // up to 3 poster_url values
 }
 
-/**
- * Fetches the 10 featured genres, each with up to 3 random episode poster URLs
- * for the stacked-card Categories section on the homepage.
- */
-export async function getGenresWithPosters(): Promise<GenreWithPosters[]> {
-  const supabase = await createClient();
+async function fetchGenresWithPosters(): Promise<GenreWithPosters[]> {
+  const supabase = getAnonClient();
 
   // 1. Get the 10 featured genres
   const { data: genres } = await supabase
@@ -305,61 +375,82 @@ export async function getGenresWithPosters(): Promise<GenreWithPosters[]> {
 
   if (!genres || genres.length === 0) return [];
 
-  // 2. For each genre, fetch up to 3 random episode posters
-  const results: GenreWithPosters[] = await Promise.all(
-    genres.map(async (genre) => {
-      // Try episode_genres first
-      const { data: episodeGenres } = await supabase
-        .from("episode_genres")
-        .select("episode:episode_id ( poster_url )")
-        .eq("genre_id", genre.id)
-        .limit(20);
+  const genreIds = genres.map((g: any) => g.id);
 
-      let posterUrls: string[] = [];
+  // 2. Batch fetch all episode_genres rows for these genres
+  const { data: allEpisodeGenres } = await supabase
+    .from("episode_genres")
+    .select("genre_id, episode:episode_id ( poster_url )")
+    .in("genre_id", genreIds)
+    .limit(200);
 
-      if (episodeGenres && episodeGenres.length > 0) {
-        posterUrls = episodeGenres
-          .map((eg: any) => eg.episode?.poster_url)
-          .filter(Boolean);
+  // 3. Build genreId -> poster_urls map
+  const posterMap: Record<string, string[]> = {};
+  for (const eg of allEpisodeGenres ?? []) {
+    const url = (eg as any).episode?.poster_url;
+    if (!url) continue;
+    if (!posterMap[eg.genre_id]) posterMap[eg.genre_id] = [];
+    posterMap[eg.genre_id].push(url);
+  }
+
+  // 4. For genres with no episode-level posters, batch fallback via series_genres
+  const missingGenreIds = genreIds.filter((id: any) => !posterMap[id]?.length);
+  if (missingGenreIds.length > 0) {
+    const { data: sgData } = await supabase
+      .from("series_genres")
+      .select("genre_id, series:series_id ( id )")
+      .in("genre_id", missingGenreIds);
+
+    const seriesIdSet = new Set<string>();
+    const genreSeriesMap: Record<string, string[]> = {};
+    for (const sg of sgData ?? []) {
+      const sid = (sg as any).series?.id;
+      if (!sid) continue;
+      seriesIdSet.add(sid);
+      if (!genreSeriesMap[sg.genre_id]) genreSeriesMap[sg.genre_id] = [];
+      genreSeriesMap[sg.genre_id].push(sid);
+    }
+
+    if (seriesIdSet.size > 0) {
+      const { data: eps } = await supabase
+        .from("episodes")
+        .select("series_id, poster_url")
+        .in("series_id", Array.from(seriesIdSet))
+        .not("poster_url", "is", null)
+        .eq("status", "published")
+        .limit(200);
+
+      const seriesPosterMap: Record<string, string[]> = {};
+      for (const ep of eps ?? []) {
+        if (!ep.series_id || !ep.poster_url) continue;
+        if (!seriesPosterMap[ep.series_id])
+          seriesPosterMap[ep.series_id] = [];
+        seriesPosterMap[ep.series_id].push(ep.poster_url);
       }
 
-      // Fallback: try series_genres → episodes
-      if (posterUrls.length === 0) {
-        const { data: seriesGenres } = await supabase
-          .from("series_genres")
-          .select("series:series_id ( id )")
-          .eq("genre_id", genre.id)
-          .limit(10);
-
-        if (seriesGenres && seriesGenres.length > 0) {
-          const seriesIds = seriesGenres
-            .map((sg: any) => sg.series?.id)
-            .filter(Boolean);
-          if (seriesIds.length > 0) {
-            const { data: eps } = await supabase
-              .from("episodes")
-              .select("poster_url")
-              .in("series_id", seriesIds)
-              .not("poster_url", "is", null)
-              .eq("status", "published")
-              .limit(20);
-            posterUrls = (eps ?? []).map((e: any) => e.poster_url).filter(Boolean);
-          }
+      for (const genreId of missingGenreIds) {
+        const seriesIds = genreSeriesMap[genreId] ?? [];
+        const urls: string[] = [];
+        for (const sid of seriesIds) {
+          urls.push(...(seriesPosterMap[sid] ?? []));
         }
+        if (urls.length > 0) posterMap[genreId] = urls;
       }
+    }
+  }
 
-      // Shuffle and pick 3
-      const shuffled = posterUrls.sort(() => Math.random() - 0.5);
-      return {
-        id: genre.id,
-        name: genre.name,
-        slug: genre.slug,
-        posters: shuffled.slice(0, 3),
-      };
-    })
-  );
+  // 5. Build results — shuffle and pick 3 posters per genre
+  const results: GenreWithPosters[] = genres.map((genre: any) => {
+    const urls = posterMap[genre.id] ?? [];
+    const shuffled = urls.sort(() => Math.random() - 0.5);
+    return {
+      id: genre.id,
+      name: genre.name,
+      slug: genre.slug,
+      posters: shuffled.slice(0, 3),
+    };
+  });
 
-  // Sort results to match the FEATURED_GENRE_SLUGS order
   results.sort(
     (a, b) =>
       FEATURED_GENRE_SLUGS.indexOf(a.slug) -
@@ -369,7 +460,15 @@ export async function getGenresWithPosters(): Promise<GenreWithPosters[]> {
   return results;
 }
 
-/* ─── Latest Comments ─── */
+export async function getGenresWithPosters(): Promise<GenreWithPosters[]> {
+  const cached = unstable_cache(fetchGenresWithPosters, ["genres-with-posters"], {
+    revalidate: 3600,
+    tags: ["genres"],
+  });
+  return cached();
+}
+
+/* ─── Latest Comments (cached) ─── */
 
 export interface LatestComment {
   id: string;
@@ -389,14 +488,8 @@ export interface LatestComment {
   };
 }
 
-/**
- * Fetches the most recent comments across all episodes,
- * joined with user profile and episode info for the homepage section.
- */
-export async function getLatestComments(
-  limit: number = 10
-): Promise<LatestComment[]> {
-  const supabase = await createClient();
+async function fetchLatestComments(limit: number): Promise<LatestComment[]> {
+  const supabase = getAnonClient();
 
   const { data, error } = await supabase
     .from("comments")
@@ -430,4 +523,15 @@ export async function getLatestComments(
   }
 
   return (data ?? []) as unknown as LatestComment[];
+}
+
+export async function getLatestComments(
+  limit: number = 10
+): Promise<LatestComment[]> {
+  const cached = unstable_cache(
+    () => fetchLatestComments(limit),
+    ["latest-comments", String(limit)],
+    { revalidate: 120, tags: ["comments"] }
+  );
+  return cached();
 }
