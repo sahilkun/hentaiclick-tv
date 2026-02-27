@@ -5,12 +5,21 @@ import { syncEpisodeStats } from "@/lib/meilisearch/sync";
 import { isValidUUID, validateOrigin, stripHtmlTags, parseJsonBody, isParseError } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
+const COMMENT_LIMIT_DEFAULT = 30;
+const COMMENT_LIMIT_MAX = 100;
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const episodeId = searchParams.get("episode_id");
   if (!episodeId || !isValidUUID(episodeId)) {
     return NextResponse.json({ error: "Valid episode_id required" }, { status: 400 });
   }
+
+  const limit = Math.min(
+    Math.max(parseInt(searchParams.get("limit") ?? String(COMMENT_LIMIT_DEFAULT)) || COMMENT_LIMIT_DEFAULT, 1),
+    COMMENT_LIMIT_MAX
+  );
+  const offset = Math.max(parseInt(searchParams.get("offset") ?? "0") || 0, 0);
 
   const supabase = await createClient();
 
@@ -28,14 +37,22 @@ export async function GET(request: Request) {
     )
     .eq("episode_id", episodeId)
     .eq("status", "approved")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error("Failed to fetch comments:", error.message);
     return NextResponse.json({ error: "Failed to load comments" }, { status: 500 });
   }
 
-  return NextResponse.json({ comments: data ?? [] });
+  return NextResponse.json(
+    { comments: data ?? [], hasMore: (data ?? []).length === limit },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+      },
+    }
+  );
 }
 
 export async function POST(request: Request) {

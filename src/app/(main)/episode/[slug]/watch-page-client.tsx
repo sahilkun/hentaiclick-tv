@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -17,17 +18,37 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { VideoPlayer } from "@/components/player/video-player";
 import { EpisodeList } from "@/components/episode/episode-list";
 import { SidebarCard } from "@/components/episode/sidebar-card";
-import { DownloadModal } from "@/components/episode/download-modal";
-import { CommentList } from "@/components/comments/comment-list";
 import { RatingPicker } from "@/components/user/rating-picker";
-import { RatingBreakdown } from "@/components/episode/rating-breakdown";
 import { FavoriteButton } from "@/components/user/favorite-button";
 import { AddToPlaylist } from "@/components/user/add-to-playlist";
-import { PlaylistSidebar } from "@/components/user/playlist-sidebar";
 import { Button } from "@/components/ui/button";
+
+const VideoPlayer = dynamic(
+  () => import("@/components/player/video-player").then((m) => ({ default: m.VideoPlayer })),
+  { ssr: false, loading: () => <div className="aspect-video animate-pulse rounded-lg bg-muted" /> }
+);
+
+const DownloadModal = dynamic(
+  () => import("@/components/episode/download-modal").then((m) => ({ default: m.DownloadModal })),
+  { ssr: false }
+);
+
+const RatingBreakdown = dynamic(
+  () => import("@/components/episode/rating-breakdown").then((m) => ({ default: m.RatingBreakdown })),
+  { ssr: false, loading: () => <div className="h-40 animate-pulse rounded bg-muted" /> }
+);
+
+const CommentList = dynamic(
+  () => import("@/components/comments/comment-list").then((m) => ({ default: m.CommentList })),
+  { ssr: false, loading: () => <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded bg-muted" />)}</div> }
+);
+
+const PlaylistSidebar = dynamic(
+  () => import("@/components/user/playlist-sidebar").then((m) => ({ default: m.PlaylistSidebar })),
+  { ssr: false }
+);
 import { cn, formatNumber } from "@/lib/utils";
 import { getStreamableQualities } from "@/lib/access";
 import { deriveStreamQualities } from "@/lib/cdn";
@@ -61,24 +82,18 @@ export function WatchPageClient({
   const [userRating, setUserRating] = useState<number | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
 
-  // Fetch user's existing rating and favorite status
+  // Fetch user's existing rating and favorite status in parallel
   useEffect(() => {
     if (!user) return;
-    fetch(`/api/episodes/${episode.id}/rate`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed to fetch rating");
-        return r.json();
+    Promise.all([
+      fetch(`/api/episodes/${episode.id}/rate`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`/api/favorites?episode_id=${episode.id}`).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([rateData, favData]) => {
+        setUserRating(rateData?.score ?? null);
+        setIsFavorited(favData?.favorited ?? false);
       })
-      .then((data) => setUserRating(data.score ?? null))
-      .catch(() => setUserRating(null));
-
-    fetch(`/api/favorites?episode_id=${episode.id}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Failed to fetch favorite");
-        return r.json();
-      })
-      .then((data) => setIsFavorited(data.favorited))
-      .catch(() => setIsFavorited(false));
+      .catch(() => {});
   }, [user, episode.id]);
 
   const userContext: UserContext = {

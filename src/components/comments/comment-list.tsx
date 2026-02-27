@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Reply, User } from "lucide-react";
+import { Reply, User, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommentForm } from "./comment-form";
 
@@ -20,6 +20,8 @@ interface CommentData {
   };
 }
 
+const PAGE_SIZE = 30;
+
 interface CommentListProps {
   episodeId: string;
   className?: string;
@@ -28,21 +30,41 @@ interface CommentListProps {
 export function CommentList({ episodeId, className }: CommentListProps) {
   const [comments, setComments] = useState<CommentData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
 
-  const fetchComments = async () => {
-    try {
-      const res = await fetch(`/api/comments?episode_id=${episodeId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setComments(data.comments ?? []);
-      }
-    } catch {}
-    setLoading(false);
-  };
+  const fetchComments = useCallback(
+    async (offset: number, append: boolean) => {
+      if (append) setLoadingMore(true);
+      try {
+        const res = await fetch(
+          `/api/comments?episode_id=${episodeId}&limit=${PAGE_SIZE}&offset=${offset}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const fetched: CommentData[] = data.comments ?? [];
+          setComments((prev) => (append ? [...prev, ...fetched] : fetched));
+          setHasMore(data.hasMore ?? false);
+        }
+      } catch {}
+      setLoading(false);
+      setLoadingMore(false);
+    },
+    [episodeId]
+  );
 
   useEffect(() => {
-    fetchComments();
-  }, [episodeId]);
+    fetchComments(0, false);
+  }, [fetchComments]);
+
+  const handleLoadMore = () => {
+    fetchComments(comments.length, true);
+  };
+
+  const handleNewComment = () => {
+    // Refresh from start to include the new comment
+    fetchComments(0, false);
+  };
 
   // Build threaded structure
   const rootComments = comments.filter((c) => !c.parent_id);
@@ -64,7 +86,7 @@ export function CommentList({ episodeId, className }: CommentListProps) {
 
   return (
     <div className={cn("space-y-4", className)}>
-      <CommentForm episodeId={episodeId} onSubmit={fetchComments} />
+      <CommentForm episodeId={episodeId} onSubmit={handleNewComment} />
 
       {rootComments.length === 0 && (
         <p className="py-4 text-center text-sm text-muted-foreground">
@@ -78,9 +100,26 @@ export function CommentList({ episodeId, className }: CommentListProps) {
           comment={comment}
           replies={getReplies(comment.id)}
           episodeId={episodeId}
-          onReply={fetchComments}
+          onReply={handleNewComment}
         />
       ))}
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={handleLoadMore}
+          disabled={loadingMore}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+        >
+          {loadingMore ? (
+            "Loading..."
+          ) : (
+            <>
+              Load More Comments <ChevronDown className="h-4 w-4" />
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }

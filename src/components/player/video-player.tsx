@@ -178,6 +178,7 @@ export function VideoPlayer({
   const currentQualityRef = useRef<Quality>(720);
   const subtitleBlobUrlRef = useRef<string | null>(null);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const setupGenRef = useRef(0);
   const MAX_RETRIES = 3;
 
   const [toast, setToast] = useState<string | null>(null);
@@ -219,6 +220,9 @@ export function VideoPlayer({
     hlsRef.current?.destroy();
     retryCountRef.current = 0;
     currentQualityRef.current = quality;
+
+    // Bump generation so stale async subtitle loads are ignored
+    const gen = ++setupGenRef.current;
 
     // Clean up old subtitle blob URL
     if (subtitleBlobUrlRef.current) {
@@ -315,6 +319,11 @@ export function VideoPlayer({
     const subtitleUrl = getSubtitleUrl(subtitleLinks, quality);
     if (!subtitleUrl) return;
     loadSubtitleVtt(subtitleUrl).then((blobUrl) => {
+      // Stale load — a newer setupHls call has superseded this one
+      if (gen !== setupGenRef.current) {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        return;
+      }
       if (!blobUrl) return;
       subtitleBlobUrlRef.current = blobUrl;
       const track = document.createElement("track");
@@ -503,16 +512,24 @@ export function VideoPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [resetHideTimer, showToast]);
 
+  // Sync fullscreen state with browser via fullscreenchange event
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setState((s) => ({ ...s, fullscreen: !!document.fullscreenElement }));
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
 
     if (document.fullscreenElement) {
       document.exitFullscreen();
-      setState((s) => ({ ...s, fullscreen: false }));
     } else {
       container.requestFullscreen();
-      setState((s) => ({ ...s, fullscreen: true }));
     }
   }, []);
 

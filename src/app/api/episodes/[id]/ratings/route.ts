@@ -33,5 +33,12 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ breakdown, total });
+  return NextResponse.json(
+    { breakdown, total },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+      },
+    }
+  );
 }
