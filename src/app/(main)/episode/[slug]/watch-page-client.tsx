@@ -113,9 +113,13 @@ export function WatchPageClient({
   );
 
   const handleView = useCallback(async () => {
-    try {
-      await fetch(`/api/episodes/${episode.id}/view`, { method: "POST" });
-    } catch {}
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`/api/episodes/${episode.id}/view`, { method: "POST" });
+        if (res.ok) return;
+      } catch {}
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 2000));
+    }
   }, [episode.id]);
 
   // View is recorded by the VideoPlayer's onView callback after 30s of playback.

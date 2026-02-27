@@ -176,6 +176,7 @@ export function VideoPlayer({
   const viewCountedRef = useRef(false);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const playTimeRef = useRef(0);
+  const lastTimeUpdateRef = useRef(0);
   const retryCountRef = useRef(0);
   const currentQualityRef = useRef<Quality>(720);
   const subtitleBlobUrlRef = useRef<string | null>(null);
@@ -397,11 +398,18 @@ export function VideoPlayer({
       }));
 
       if (!video.paused) {
-        playTimeRef.current += 0.25;
+        const now = performance.now() / 1000;
+        if (lastTimeUpdateRef.current > 0) {
+          const delta = Math.min(now - lastTimeUpdateRef.current, 1);
+          playTimeRef.current += delta;
+        }
+        lastTimeUpdateRef.current = now;
         if (playTimeRef.current >= 30 && !viewCountedRef.current) {
           viewCountedRef.current = true;
           onView?.();
         }
+      } else {
+        lastTimeUpdateRef.current = 0;
       }
     };
 

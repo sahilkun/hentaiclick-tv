@@ -41,17 +41,18 @@ export async function POST(
 
   const supabase = await createClient();
 
-  try {
-    await supabase.rpc("record_episode_view", {
-      p_episode_id: episodeId,
-      p_ip_hash: ipHash,
-    });
+  const { error } = await supabase.rpc("record_episode_view", {
+    p_episode_id: episodeId,
+    p_ip_hash: ipHash,
+  });
 
-    // Sync updated stats to MeiliSearch (fire-and-forget)
-    syncEpisodeStats(episodeId).catch(console.error);
-  } catch (error) {
-    console.error("Error recording view:", error);
+  if (error) {
+    console.error("Error recording view:", error.message);
+    return NextResponse.json({ ok: false }, { status: 500 });
   }
+
+  // Sync updated stats to MeiliSearch (fire-and-forget)
+  syncEpisodeStats(episodeId).catch(console.error);
 
   return NextResponse.json({ ok: true });
 }
