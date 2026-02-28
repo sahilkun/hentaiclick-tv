@@ -77,8 +77,7 @@ async function fetchEpisodes(
   const { data, error } = await query;
 
   if (error) {
-    console.error("Error fetching episodes:", error);
-    return [];
+    throw new Error(`Failed to fetch episodes: ${error.message}`);
   }
 
   if (!data || data.length === 0) return [];
@@ -163,7 +162,11 @@ async function fetchEpisodeBySlug(
     .eq("slug", slug)
     .single();
 
-  if (error) return null;
+  if (error) {
+    // PGRST116 = "not found" for .single() — this is expected, return null
+    if (error.code === "PGRST116") return null;
+    throw new Error(`Failed to fetch episode "${slug}": ${error.message}`);
+  }
 
   // Fetch episode-level genres first
   const { data: episodeGenreData } = await supabase
@@ -462,7 +465,7 @@ async function fetchGenresWithPosters(): Promise<GenreWithPosters[]> {
 
 export async function getGenresWithPosters(): Promise<GenreWithPosters[]> {
   const cached = unstable_cache(fetchGenresWithPosters, ["genres-with-posters"], {
-    revalidate: 3600,
+    revalidate: 7200,
     tags: ["genres"],
   });
   return cached();
@@ -518,8 +521,7 @@ async function fetchLatestComments(limit: number): Promise<LatestComment[]> {
     .limit(limit);
 
   if (error) {
-    console.error("Error fetching latest comments:", error);
-    return [];
+    throw new Error(`Failed to fetch latest comments: ${error.message}`);
   }
 
   return (data ?? []) as unknown as LatestComment[];

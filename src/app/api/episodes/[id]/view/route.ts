@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import crypto from "crypto";
@@ -51,7 +52,8 @@ export async function POST(
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
-  // Sync updated stats to MeiliSearch (fire-and-forget)
+  // Invalidate cached episode data & sync to MeiliSearch
+  revalidateTag("episodes", "max");
   syncEpisodeStats(episodeId).catch(console.error);
 
   return NextResponse.json({ ok: true });

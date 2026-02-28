@@ -34,6 +34,7 @@ function GenreCard({ genre }: { genre: GenreWithPosters }) {
           alt={genre.name}
           width={128}
           height={176}
+          sizes="128px"
           className="absolute w-32 h-44 rounded-lg object-cover shadow-md left-4 top-4 -rotate-[15deg] z-0"
         />
       ) : (
@@ -47,6 +48,7 @@ function GenreCard({ genre }: { genre: GenreWithPosters }) {
           alt={genre.name}
           width={128}
           height={176}
+          sizes="128px"
           className="absolute w-32 h-44 rounded-lg object-cover shadow-lg top-4 left-1/2 -translate-x-1/2 z-10"
         />
       ) : (
@@ -60,6 +62,7 @@ function GenreCard({ genre }: { genre: GenreWithPosters }) {
           alt={genre.name}
           width={128}
           height={176}
+          sizes="128px"
           className="absolute w-32 h-44 rounded-lg object-cover shadow-lg right-4 top-14 rotate-[15deg] z-20"
         />
       ) : (

@@ -8,6 +8,7 @@ import "./globals.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
@@ -54,6 +55,9 @@ export default function RootLayout({
         <link rel="preconnect" href="https://cdn.rootserver2.com" />
         <link rel="dns-prefetch" href="https://c6149z6464.r-cdn.com" />
         <link rel="dns-prefetch" href="https://c6149z6465.r-cdn.com" />
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
+        )}
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <a

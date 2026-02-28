@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { getAnonClient } from "@/lib/supabase/anon";
 
 export const metadata: Metadata = {
   title: "Studios",
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 export default async function StudiosPage() {
-  const supabase = await createClient();
+  const supabase = getAnonClient();
   const { data: studios } = await supabase
     .from("studios")
     .select("*")
@@ -34,7 +34,7 @@ export default async function StudiosPage() {
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: studioList.length,
-      itemListElement: studioList.map((studio, i) => ({
+      itemListElement: studioList.map((studio: any, i: any) => ({
         "@type": "ListItem",
         position: i + 1,
         name: studio.name,
@@ -53,7 +53,7 @@ export default async function StudiosPage() {
         <h1 className="mb-6 text-2xl font-bold">Studios</h1>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {studioList.map((studio) => (
+          {studioList.map((studio: any) => (
             <Link
               key={studio.id}
               href={`/studios/${studio.slug}`}

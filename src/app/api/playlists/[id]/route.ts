@@ -113,18 +113,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Playlist not found" }, { status: 404 });
   }
 
-  // Delete playlist episodes first — abort if this fails to prevent orphaned items
-  const { error: itemsError } = await supabase
-    .from("playlist_episodes")
-    .delete()
-    .eq("playlist_id", id);
-
-  if (itemsError) {
-    console.error("Failed to delete playlist episodes:", itemsError.message);
-    return NextResponse.json({ error: "Failed to delete playlist" }, { status: 500 });
-  }
-
-  // Delete the playlist only after items are successfully removed
+  // Delete the playlist — ON DELETE CASCADE on playlist_episodes FK
+  // automatically removes associated items in a single round-trip.
   const { error } = await supabase
     .from("playlists")
     .delete()

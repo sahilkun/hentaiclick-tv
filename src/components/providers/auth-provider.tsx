@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AuthContext } from "@/hooks/use-auth";
 import type { Profile } from "@/types";
@@ -103,8 +103,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = "/";
   }, []);
 
+  const contextValue = useMemo(
+    () => ({ user, loading, signOut }),
+    [user, loading, signOut]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, loading, signOut }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

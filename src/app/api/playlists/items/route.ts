@@ -192,17 +192,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to add episode" }, { status: 400 });
   }
 
-  // Recount after insert for accurate episode_count
-  const { count: newCount } = await supabase
-    .from("playlist_episodes")
-    .select("*", { count: "exact", head: true })
-    .eq("playlist_id", playlist_id);
-
-  await supabase
-    .from("playlists")
-    .update({ episode_count: newCount ?? 0 })
-    .eq("id", playlist_id);
-
+  // episode_count is updated automatically by the
+  // update_playlist_episode_count DB trigger.
   return NextResponse.json({ ok: true });
 }
 
@@ -251,16 +242,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Failed to remove episode" }, { status: 500 });
   }
 
-  // Update episode_count
-  const { count } = await supabase
-    .from("playlist_episodes")
-    .select("*", { count: "exact", head: true })
-    .eq("playlist_id", playlist_id);
-
-  await supabase
-    .from("playlists")
-    .update({ episode_count: count ?? 0 })
-    .eq("id", playlist_id);
-
+  // episode_count is updated automatically by the
+  // update_playlist_episode_count DB trigger.
   return NextResponse.json({ ok: true });
 }

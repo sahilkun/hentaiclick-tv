@@ -1,36 +1,36 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAnonClient } from "@/lib/supabase/anon";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: episodeId } = await params;
-  const supabase = await createClient();
+  const supabase = getAnonClient();
 
-  // Get all ratings for this episode, grouped by score
-  const { data, error } = await supabase
-    .from("ratings")
-    .select("score")
-    .eq("episode_id", episodeId);
+  // Parallel head-only count queries — transfers zero rows.
+  // Each query only returns a count for a specific score (1-10).
+  const counts = await Promise.all(
+    Array.from({ length: 10 }, (_, i) => i + 1).map(async (score) => {
+      const { count, error } = await supabase
+        .from("ratings")
+        .select("*", { count: "exact", head: true })
+        .eq("episode_id", episodeId)
+        .eq("score", score);
 
-  if (error) {
-    console.error("Failed to fetch ratings:", error.message);
-    return NextResponse.json({ error: "Failed to load ratings" }, { status: 500 });
-  }
+      if (error) {
+        console.error(`Failed to count score ${score}:`, error.message);
+        return { score, count: 0 };
+      }
+      return { score, count: count ?? 0 };
+    })
+  );
 
-  // Build breakdown: count per score (1-10)
   const breakdown: Record<number, number> = {};
-  for (let i = 1; i <= 10; i++) {
-    breakdown[i] = 0;
-  }
-
   let total = 0;
-  for (const row of data ?? []) {
-    if (row.score >= 1 && row.score <= 10) {
-      breakdown[row.score]++;
-      total++;
-    }
+  for (const { score, count } of counts) {
+    breakdown[score] = count;
+    total += count;
   }
 
   return NextResponse.json(

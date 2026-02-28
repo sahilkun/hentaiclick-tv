@@ -23,6 +23,7 @@ export function SearchBar({ className }: { className?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const abortRef = useRef<AbortController | null>(null);
 
   const search = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -30,9 +31,13 @@ export function SearchBar({ className }: { className?: string }) {
       setOpen(false);
       return;
     }
+    // Cancel any in-flight request before starting a new one
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
     try {
       const res = await fetch(
-        `/api/search?q=${encodeURIComponent(q)}&limit=${SEARCH_DROPDOWN_LIMIT}`
+        `/api/search?q=${encodeURIComponent(q)}&limit=${SEARCH_DROPDOWN_LIMIT}`,
+        { signal: abortRef.current.signal }
       );
       if (res.ok) {
         const data = await res.json();
@@ -40,7 +45,7 @@ export function SearchBar({ className }: { className?: string }) {
         setOpen(true);
       }
     } catch {
-      // silently fail for live search
+      // silently fail for live search (includes AbortError)
     }
   }, []);
 

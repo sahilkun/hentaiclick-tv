@@ -20,10 +20,20 @@ import {
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { EpisodeList } from "@/components/episode/episode-list";
 import { SidebarCard } from "@/components/episode/sidebar-card";
-import { RatingPicker } from "@/components/user/rating-picker";
-import { FavoriteButton } from "@/components/user/favorite-button";
-import { AddToPlaylist } from "@/components/user/add-to-playlist";
 import { Button } from "@/components/ui/button";
+
+const RatingPicker = dynamic(
+  () => import("@/components/user/rating-picker").then((m) => ({ default: m.RatingPicker })),
+  { ssr: false }
+);
+const FavoriteButton = dynamic(
+  () => import("@/components/user/favorite-button").then((m) => ({ default: m.FavoriteButton })),
+  { ssr: false }
+);
+const AddToPlaylist = dynamic(
+  () => import("@/components/user/add-to-playlist").then((m) => ({ default: m.AddToPlaylist })),
+  { ssr: false }
+);
 
 const VideoPlayer = dynamic(
   () => import("@/components/player/video-player").then((m) => ({ default: m.VideoPlayer })),

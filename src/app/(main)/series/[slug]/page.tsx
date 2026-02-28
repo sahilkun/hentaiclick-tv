@@ -2,12 +2,16 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
 import { getAnonClient } from "@/lib/supabase/anon";
 import { Badge } from "@/components/ui/badge";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { EpisodeCarousel } from "@/components/episode/episode-carousel";
 import { getEpisodes } from "@/lib/queries/episodes";
+import {
+  getSeriesBySlug,
+  getSeriesGenres,
+  getSeriesEpisodes,
+} from "@/lib/queries/series";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import type { EpisodeWithRelations } from "@/types";
 
@@ -16,25 +20,8 @@ export async function generateStaticParams() {
   const { data } = await supabase
     .from("series")
     .select("slug")
-    .limit(100);
+    .limit(500);
   return (data ?? []).map((s: any) => ({ slug: s.slug }));
-}
-
-interface StudioRef {
-  name: string;
-  slug: string;
-}
-
-interface SeriesWithStudio {
-  id: string;
-  title: string;
-  slug: string;
-  description?: string | null;
-  cover_url?: string | null;
-  year?: number | null;
-  status: string;
-  studio?: StudioRef | null;
-  [key: string]: unknown;
 }
 
 export const revalidate = 300;
@@ -45,12 +32,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data: series } = await supabase
-    .from("series")
-    .select("title, meta_description, cover_url")
-    .eq("slug", slug)
-    .single();
+  const series = await getSeriesBySlug(slug);
 
   if (!series) return { title: "Series Not Found" };
 
@@ -75,44 +57,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SeriesDetailPage({ params }: Props) {
   const { slug } = await params;
-  const supabase = await createClient();
+  const series = await getSeriesBySlug(slug);
 
-  const { data: rawSeries } = await supabase
-    .from("series")
-    .select(
-      `*, studio:studio_id (name, slug)`
-    )
-    .eq("slug", slug)
-    .single();
+  if (!series) notFound();
 
-  if (!rawSeries) notFound();
-
-  const series = rawSeries as unknown as SeriesWithStudio;
-
-  // Fetch genres
-  const { data: genreData } = await supabase
-    .from("series_genres")
-    .select("genre:genre_id (id, name, slug)")
-    .eq("series_id", series.id);
-
-  const genres =
-    genreData?.map((g: any) => g.genre).filter(Boolean) ?? [];
-
-  // Fetch episodes
-  const { data: episodesData } = await supabase
-    .from("episodes")
-    .select(
-      `*, series:series_id (title, slug, studio:studio_id (name, slug))`
-    )
-    .eq("series_id", series.id)
-    .eq("status", "published")
-    .order("season_no", { ascending: true })
-    .order("episode_no", { ascending: true });
-
-  const episodes = (episodesData ?? []) as unknown as EpisodeWithRelations[];
-
-  // Popular weekly for sidebar
-  const popularWeekly = await getEpisodes("popular_weekly", 6);
+  // Parallel fetches — genres, episodes, and popular weekly sidebar
+  const [genres, episodes, popularWeekly] = await Promise.all([
+    getSeriesGenres(series.id),
+    getSeriesEpisodes(series.id),
+    getEpisodes("popular_weekly", 6),
+  ]);
 
   // Group by season
   const seasons = episodes.reduce(

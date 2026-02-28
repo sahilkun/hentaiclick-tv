@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EpisodeCard } from "./episode-card";
@@ -12,7 +12,7 @@ interface EpisodeCarouselProps {
   className?: string;
 }
 
-export function EpisodeCarousel({
+export const EpisodeCarousel = memo(function EpisodeCarousel({
   episodes,
   title,
   className,
@@ -73,4 +73,4 @@ export function EpisodeCarousel({
       </div>
     </div>
   );
-}
+});

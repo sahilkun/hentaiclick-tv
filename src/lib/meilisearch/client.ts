@@ -8,6 +8,7 @@ export function getMeilisearchClient(): MeiliSearch {
     searchClient = new MeiliSearch({
       host: process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? "http://localhost:7700",
       apiKey: process.env.NEXT_PUBLIC_MEILISEARCH_SEARCH_KEY ?? "",
+      timeout: 5000,
     });
   }
   return searchClient;
@@ -18,6 +19,7 @@ export function getMeilisearchAdminClient(): MeiliSearch {
     adminClient = new MeiliSearch({
       host: process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? "http://localhost:7700",
       apiKey: process.env.MEILISEARCH_ADMIN_KEY ?? "",
+      timeout: 5000,
     });
   }
   return adminClient;

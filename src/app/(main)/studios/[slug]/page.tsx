@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
 import { getAnonClient } from "@/lib/supabase/anon";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
-import type { EpisodeWithRelations } from "@/types";
+import { getStudioBySlug, getStudioEpisodes } from "@/lib/queries/studios";
 
 export const revalidate = 600;
 
@@ -21,12 +20,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data: studio } = await supabase
-    .from("studios")
-    .select("name, description")
-    .eq("slug", slug)
-    .single();
+  const studio = await getStudioBySlug(slug);
 
   if (!studio) return { title: "Studio Not Found" };
 
@@ -48,38 +42,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function StudioDetailPage({ params }: Props) {
   const { slug } = await params;
-  const supabase = await createClient();
-
-  const { data: studio } = await supabase
-    .from("studios")
-    .select("*")
-    .eq("slug", slug)
-    .single();
+  const studio = await getStudioBySlug(slug);
 
   if (!studio) notFound();
 
-  // Get series by this studio
-  const { data: seriesData } = await supabase
-    .from("series")
-    .select("id")
-    .eq("studio_id", studio.id);
-
-  const seriesIds = seriesData?.map((s) => s.id) ?? [];
-
-  let episodes: EpisodeWithRelations[] = [];
-  if (seriesIds.length > 0) {
-    const { data } = await supabase
-      .from("episodes")
-      .select(
-        `*, series:series_id (title, slug, studio:studio_id (name, slug))`
-      )
-      .in("series_id", seriesIds)
-      .eq("status", "published")
-      .order("upload_date", { ascending: false })
-      .limit(50);
-
-    episodes = (data ?? []) as unknown as EpisodeWithRelations[];
-  }
+  const episodes = await getStudioEpisodes(studio.id);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
   const breadcrumb = {

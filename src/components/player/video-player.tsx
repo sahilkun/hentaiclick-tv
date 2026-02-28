@@ -245,7 +245,14 @@ export function VideoPlayer({
     if (!streamUrl) return;
 
     if (Hls.isSupported()) {
-      const hls = new Hls({ startLevel: -1 });
+      const hls = new Hls({
+        startLevel: -1,
+        capLevelOnFPSDrop: true,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        backBufferLength: 90,
+        lowLatencyMode: false,
+      });
       hlsRef.current = hls;
 
       // Recommended order: attachMedia first, then loadSource on MEDIA_ATTACHED

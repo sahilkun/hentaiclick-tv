@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Eye, Heart, MessageCircle, TriangleAlert } from "lucide-react";
@@ -19,7 +19,7 @@ interface EpisodeCardProps {
   priority?: boolean;
 }
 
-export function EpisodeCard({ episode, className, viewMode = "thumbnail", priority }: EpisodeCardProps) {
+export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewMode = "thumbnail", priority }: EpisodeCardProps) {
   const [hovering, setHovering] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
@@ -176,7 +176,7 @@ export function EpisodeCard({ episode, className, viewMode = "thumbnail", priori
       </div>
     </Link>
   );
-}
+});
 
 function getQualityBadgeText(qualities: number[]): string {
   const parts: string[] = [];

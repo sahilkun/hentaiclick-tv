@@ -1,11 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+import { getAnonClient } from "@/lib/supabase/anon";
 import ReactMarkdown from "react-markdown";
 import type { Metadata } from "next";
 
 export const revalidate = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const supabase = await createClient();
+  const supabase = getAnonClient();
   const { data } = await supabase
     .from("site_pages")
     .select("meta_title, meta_description")
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PremiumPage() {
-  const supabase = await createClient();
+  const supabase = getAnonClient();
   const { data: page } = await supabase
     .from("site_pages")
     .select("*")

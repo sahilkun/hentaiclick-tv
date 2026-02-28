@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, ChevronDown, X, Ban, Building2, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -102,6 +102,8 @@ export default function SearchPage() {
   const [viewMode, setViewMode] = useState<ViewMode>(
     (searchParams.get("view") as ViewMode) || "thumbnail"
   );
+
+  const abortRef = useRef<AbortController | null>(null);
 
   // Genres state
   const [allGenres, setAllGenres] = useState<GenreItem[]>([]);
@@ -206,6 +208,8 @@ export default function SearchPage() {
 
   const fetchResults = useCallback(async () => {
     setLoading(true);
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
 
     const params = new URLSearchParams();
     if (query) params.set("q", query);
@@ -222,7 +226,7 @@ export default function SearchPage() {
       params.set("studios", selectedStudios.join(","));
 
     try {
-      const res = await fetch(`/api/search?${params}`);
+      const res = await fetch(`/api/search?${params}`, { signal: abortRef.current.signal });
       if (res.ok) {
         const data = await res.json();
         setResults(
@@ -748,7 +752,7 @@ export default function SearchPage() {
   );
 }
 
-function GenreTag({
+const GenreTag = memo(function GenreTag({
   genre,
   selected,
   disabled,
@@ -788,4 +792,4 @@ function GenreTag({
       )}
     </button>
   );
-}
+});

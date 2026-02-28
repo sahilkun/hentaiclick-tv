@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAnonClient } from "@/lib/supabase/anon";
 import { COMMENT_MAX_LENGTH } from "@/lib/constants";
 import { syncEpisodeStats } from "@/lib/meilisearch/sync";
 import { isValidUUID, validateOrigin, stripHtmlTags, parseJsonBody, isParseError } from "@/lib/validation";
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
   );
   const offset = Math.max(parseInt(searchParams.get("offset") ?? "0") || 0, 0);
 
-  const supabase = await createClient();
+  const supabase = getAnonClient();
 
   const { data, error } = await supabase
     .from("comments")
@@ -138,7 +140,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to submit comment" }, { status: 500 });
   }
 
-  // Sync updated stats to MeiliSearch (fire-and-forget)
+  // Invalidate cached comment data & sync to MeiliSearch
+  revalidateTag("comments", "max");
   syncEpisodeStats(episode_id).catch(console.error);
 
   return NextResponse.json({ comment: data });

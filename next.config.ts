@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
     ],
   },
   reactCompiler: true,
+  experimental: {
+    optimizePackageImports: ["lucide-react", "date-fns"],
+  },
+  compiler: {
+    removeConsole: { exclude: ["error", "warn"] },
+  },
   async headers() {
     return [
       {

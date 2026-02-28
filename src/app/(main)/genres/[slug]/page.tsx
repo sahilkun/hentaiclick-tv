@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
 import { getAnonClient } from "@/lib/supabase/anon";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
-import type { EpisodeWithRelations } from "@/types";
+import { getGenreBySlug, getGenreEpisodes } from "@/lib/queries/genres";
 
 export const revalidate = 600;
 
@@ -20,12 +19,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data: genre } = await supabase
-    .from("genres")
-    .select("name")
-    .eq("slug", slug)
-    .single();
+  const genre = await getGenreBySlug(slug);
 
   if (!genre) return { title: "Genre Not Found" };
 
@@ -45,38 +39,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function GenreDetailPage({ params }: Props) {
   const { slug } = await params;
-  const supabase = await createClient();
-
-  const { data: genre } = await supabase
-    .from("genres")
-    .select("*")
-    .eq("slug", slug)
-    .single();
+  const genre = await getGenreBySlug(slug);
 
   if (!genre) notFound();
 
-  // Get series that have this genre
-  const { data: seriesGenres } = await supabase
-    .from("series_genres")
-    .select("series_id")
-    .eq("genre_id", genre.id);
-
-  const seriesIds = seriesGenres?.map((sg) => sg.series_id) ?? [];
-
-  let episodes: EpisodeWithRelations[] = [];
-  if (seriesIds.length > 0) {
-    const { data } = await supabase
-      .from("episodes")
-      .select(
-        `*, series:series_id (title, slug, studio:studio_id (name, slug))`
-      )
-      .in("series_id", seriesIds)
-      .eq("status", "published")
-      .order("upload_date", { ascending: false })
-      .limit(50);
-
-    episodes = (data ?? []) as unknown as EpisodeWithRelations[];
-  }
+  const episodes = await getGenreEpisodes(genre.id);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
   const breadcrumb = {

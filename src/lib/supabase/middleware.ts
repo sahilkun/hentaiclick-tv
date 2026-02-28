@@ -8,13 +8,18 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Skip auth check entirely for auth pages and API routes — avoids blocking
-  // when Supabase token refresh hangs due to clock skew or network issues.
+  // Skip auth check entirely for auth pages and public API routes — avoids
+  // blocking when Supabase token refresh hangs due to clock skew or network
+  // issues, and saves ~50-100ms per request on public endpoints.
   if (
     pathname === "/login" ||
     pathname === "/register" ||
     pathname === "/forgot-password" ||
-    pathname.startsWith("/api/auth/")
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/api/search" ||
+    pathname === "/api/genres" ||
+    pathname === "/api/studios" ||
+    /^\/api\/episodes\/[^/]+\/ratings$/.test(pathname)
   ) {
     return supabaseResponse;
   }

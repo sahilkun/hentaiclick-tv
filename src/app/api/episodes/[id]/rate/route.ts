@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { syncEpisodeStats } from "@/lib/meilisearch/sync";
 import { isValidUUID, validateOrigin, parseJsonBody, isParseError } from "@/lib/validation";
@@ -92,7 +93,8 @@ export async function POST(
     return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
   }
 
-  // Sync updated stats to MeiliSearch (fire-and-forget)
+  // Invalidate cached episode data & sync to MeiliSearch
+  revalidateTag("episodes", "max");
   syncEpisodeStats(episodeId).catch(console.error);
 
   return NextResponse.json({ ok: true });
@@ -136,7 +138,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Failed to delete rating" }, { status: 500 });
   }
 
-  // Sync updated stats to MeiliSearch (fire-and-forget)
+  // Invalidate cached episode data & sync to MeiliSearch
+  revalidateTag("episodes", "max");
   syncEpisodeStats(episodeId).catch(console.error);
 
   return NextResponse.json({ ok: true });
