@@ -10,7 +10,7 @@ let client: ReturnType<typeof createServerClient> | null = null;
 export function getAnonClient() {
   if (!client) {
     client = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
