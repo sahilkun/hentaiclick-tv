@@ -159,16 +159,19 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
             {episode.genres.map((genre) => {
               const isWarning = WARNING_GENRES.has(genre.slug);
               return (
-                <span
+                <Link
                   key={genre.slug}
+                  href={`/genres/${genre.slug}`}
+                  prefetch={false}
+                  onClick={(e) => e.stopPropagation()}
                   className={cn(
-                    "inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wider transition-colors",
+                    "inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wider transition-colors hover:opacity-80",
                     genreColor(genre.slug)
                   )}
                 >
                   {isWarning && <TriangleAlert className="h-3 w-3" />}
                   {genre.name}
-                </span>
+                </Link>
               );
             })}
           </div>
