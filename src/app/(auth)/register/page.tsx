@@ -56,6 +56,7 @@ export default function RegisterPage() {
           username,
           display_name: username,
         },
+        emailRedirectTo: `${window.location.origin}/email-confirmed`,
       },
     });
 
