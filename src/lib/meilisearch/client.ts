@@ -17,7 +17,7 @@ export function getMeilisearchClient(): MeiliSearch {
 export function getMeilisearchAdminClient(): MeiliSearch {
   if (!adminClient) {
     adminClient = new MeiliSearch({
-      host: process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? "http://localhost:7700",
+      host: process.env.MEILISEARCH_HOST ?? process.env.NEXT_PUBLIC_MEILISEARCH_HOST ?? "http://localhost:7700",
       apiKey: process.env.MEILISEARCH_ADMIN_KEY ?? "",
       timeout: 5000,
     });
