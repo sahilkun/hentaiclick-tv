@@ -47,21 +47,21 @@ async function fetchGenreEpisodes(
 ): Promise<EpisodeWithRelations[]> {
   const supabase = getAnonClient();
 
-  // Get series IDs that have this genre
-  const { data: seriesGenres } = await supabase
-    .from("series_genres")
-    .select("series_id")
+  // Get episode IDs that have this genre
+  const { data: episodeGenres } = await supabase
+    .from("episode_genres")
+    .select("episode_id")
     .eq("genre_id", genreId);
 
-  const seriesIds = seriesGenres?.map((sg: any) => sg.series_id) ?? [];
-  if (seriesIds.length === 0) return [];
+  const episodeIds = episodeGenres?.map((eg: any) => eg.episode_id) ?? [];
+  if (episodeIds.length === 0) return [];
 
   const { data } = await supabase
     .from("episodes")
     .select(
       `*, series:series_id (title, slug, studio:studio_id (name, slug))`
     )
-    .in("series_id", seriesIds)
+    .in("id", episodeIds)
     .eq("status", "published")
     .order("upload_date", { ascending: false })
     .limit(limit);
