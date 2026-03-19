@@ -58,18 +58,8 @@ export function Header() {
           <span className="text-lg font-bold text-primary">{SITE_NAME}</span>
         </Link>
 
-        {/* Desktop nav */}
-        <nav aria-label="Main navigation" className="hidden items-center gap-1 lg:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Desktop nav dropdown */}
+        <NavDropdown />
 
         {/* Search */}
         <SearchBar className="hidden flex-1 max-w-md lg:block" />
@@ -254,6 +244,51 @@ function DropdownLink({
       <Icon className="h-4 w-4" />
       {children}
     </a>
+  );
+}
+
+function NavDropdown() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <Menu className="h-4 w-4" />
+        <span className="hidden sm:inline">Menu</span>
+        <ChevronDown className={cn("h-3 w-3 opacity-50 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-md border border-border bg-card py-1 shadow-lg">
+          {navLinks.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
