@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export default function EmailConfirmedPage() {
   return (
@@ -13,9 +12,12 @@ export default function EmailConfirmedPage() {
         Your email has been verified and your account is now active. You can log
         in and start exploring.
       </p>
-      <Button asChild className="w-full">
-        <Link href="/login">Log In</Link>
-      </Button>
+      <Link
+        href="/login"
+        className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        Log In
+      </Link>
     </div>
   );
 }
