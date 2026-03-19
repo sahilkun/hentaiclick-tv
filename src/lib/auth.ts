@@ -8,10 +8,6 @@ interface AuthResult {
   role: Role;
 }
 
-/**
- * Verify the current user is authenticated and has one of the required roles.
- * Returns the user's ID and role on success, or a NextResponse error to return early.
- */
 export async function requireRole(
   ...allowedRoles: Role[]
 ): Promise<AuthResult | NextResponse> {
@@ -37,17 +33,14 @@ export async function requireRole(
   return { userId: user.id, role: profile.role as Role };
 }
 
-/** Shorthand: require admin role. */
 export async function requireAdmin() {
   return requireRole("admin");
 }
 
-/** Shorthand: require admin or moderator role. */
 export async function requireModerator() {
   return requireRole("admin", "moderator");
 }
 
-/** Type guard to check if requireRole returned an error response. */
 export function isAuthError(
   result: AuthResult | NextResponse
 ): result is NextResponse {

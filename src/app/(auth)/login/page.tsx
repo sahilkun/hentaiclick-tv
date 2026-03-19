@@ -44,7 +44,7 @@ export default function LoginPage() {
     router.refresh();
   };
 
-  const handleOAuth = async (provider: "google" | "discord") => {
+  const handleOAuth = async (provider: "discord") => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
@@ -104,20 +104,15 @@ export default function LoginPage() {
       </div>
 
       <div className="space-y-2">
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => handleOAuth("google")}
-        >
-          Continue with Google
-        </Button>
-        <Button
-          variant="outline"
-          className="w-full"
+        <button
+          className="flex w-full items-center justify-center gap-3 rounded-md bg-[#5865F2] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#4752C4] active:bg-[#3C45A5]"
           onClick={() => handleOAuth("discord")}
         >
-          Continue with Discord
-        </Button>
+          <svg width="24" height="18" viewBox="0 0 127 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2.04a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2.04a68.68 68.68 0 0 1-10.87 5.19 77.16 77.16 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53.05c0-6.94 5.04-12.67 11.45-12.67 6.41 0 11.56 5.73 11.45 12.67 0 6.94-5.06 12.64-11.45 12.64Zm42.24 0C78.41 65.69 73.25 60 73.25 53.05c0-6.94 5.04-12.67 11.44-12.67 6.41 0 11.56 5.73 11.45 12.67 0 6.94-5.04 12.64-11.45 12.64Z" fill="currentColor"/>
+          </svg>
+          Use Discord Account
+        </button>
       </div>
 
       <div className="mt-6 text-center text-sm text-muted-foreground">

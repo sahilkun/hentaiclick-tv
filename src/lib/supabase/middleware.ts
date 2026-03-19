@@ -8,18 +8,15 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Skip auth check entirely for auth pages and public API routes — avoids
-  // blocking when Supabase token refresh hangs due to clock skew or network
-  // issues, and saves ~50-100ms per request on public endpoints.
+  // Skip auth check for public pages, API routes (they handle own auth),
+  // and auth-related pages
   if (
     pathname === "/login" ||
     pathname === "/register" ||
     pathname === "/forgot-password" ||
-    pathname.startsWith("/api/auth/") ||
-    pathname === "/api/search" ||
-    pathname === "/api/genres" ||
-    pathname === "/api/studios" ||
-    /^\/api\/episodes\/[^/]+\/ratings$/.test(pathname)
+    pathname === "/email-confirmed" ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/auth/")
   ) {
     return supabaseResponse;
   }
@@ -52,11 +49,10 @@ export async function updateSession(request: NextRequest) {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch {
-    // Supabase unreachable — treat as unauthenticated and continue
     return supabaseResponse;
   }
 
-  // Redirect unauthenticated users away from protected routes
+  // Redirect unauthenticated users away from protected pages
   if (
     !user &&
     (pathname.startsWith("/profile") || pathname.startsWith("/admin"))
@@ -67,7 +63,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect non-admin/moderator users away from admin routes
+  // Redirect non-admin users away from admin pages
   if (user && pathname.startsWith("/admin")) {
     try {
       const { data: profile } = await supabase
@@ -80,9 +76,7 @@ export async function updateSession(request: NextRequest) {
       if (role !== "admin" && role !== "moderator") {
         return NextResponse.redirect(new URL("/", request.url));
       }
-    } catch {
-      // DB unreachable — allow through rather than blocking
-    }
+    } catch {}
   }
 
   return supabaseResponse;

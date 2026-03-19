@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  env: {
+    SUPABASE_URL: process.env.SUPABASE_URL,
+  },
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],

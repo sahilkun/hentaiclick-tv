@@ -11,6 +11,7 @@ services:
         condition: service_healthy
     networks:
       - internal
+      - supabase_default
 
   meilisearch:
     image: getmeili/meilisearch:v1.12
@@ -49,6 +50,8 @@ services:
 networks:
   internal:
     driver: bridge
+  supabase_default:
+    external: true
 
 volumes:
   meilisearch_data:
