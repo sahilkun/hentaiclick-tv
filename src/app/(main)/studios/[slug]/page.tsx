@@ -6,7 +6,7 @@ import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getStudioBySlug, getStudioEpisodes } from "@/lib/queries/studios";
 
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
   const supabase = getAnonClient();

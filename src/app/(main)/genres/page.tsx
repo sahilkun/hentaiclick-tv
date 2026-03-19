@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/genres" },
 };
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function GenresPage() {
   const genres = await getGenres();
