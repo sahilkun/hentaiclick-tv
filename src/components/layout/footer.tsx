@@ -34,7 +34,8 @@ export function Footer() {
           </nav>
         </div>
         <div className="mt-8 border-t border-border pt-4 text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
+          <p>Email - <a href="mailto:connect.hentaiclick@gmail.com" className="text-primary hover:underline">connect.hentaiclick@gmail.com</a></p>
+          <p className="mt-2">&copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.</p>
         </div>
       </div>
     </footer>
