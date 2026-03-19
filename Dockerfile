@@ -16,6 +16,9 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Copy production env if exists (for build-time NEXT_PUBLIC_ vars)
+COPY .env.production* ./
+
 RUN npm run build
 
 # Production image, copy all the files and run next
