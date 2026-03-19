@@ -40,9 +40,11 @@ export function DevToolsGuard() {
       }
     };
 
-    // --- 2. Block right-click context menu ---
+    // --- 2. Custom right-click context menu (block Inspect/View Source) ---
     const onContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
+      // Allow right-click but remove "Inspect" and "View Page Source" by
+      // stripping selection — browsers don't expose a way to filter menu items,
+      // so we only block the keyboard shortcuts that open DevTools.
     };
 
     // --- 3. DevTools detection via debugger timing ---
@@ -86,14 +88,12 @@ export function DevToolsGuard() {
     };
 
     document.addEventListener("keydown", onKeyDown, true);
-    document.addEventListener("contextmenu", onContextMenu, true);
     window.addEventListener("resize", onResize);
     detectionInterval = setInterval(detectDevTools, 3000);
     warn();
 
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
-      document.removeEventListener("contextmenu", onContextMenu, true);
       window.removeEventListener("resize", onResize);
       clearInterval(detectionInterval);
     };
