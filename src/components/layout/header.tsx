@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/hooks/use-auth";
 import { SearchBar } from "./search-bar";
-import { ThemeToggle } from "./theme-toggle";
+import { ThemeToggle, ThemeSwitch } from "./theme-toggle";
 import type { Profile } from "@/types";
 
 const navLinks = [
@@ -75,8 +75,6 @@ export function Header() {
             <Shuffle className="h-4 w-4" />
             <span className="hidden sm:inline">Random</span>
           </Link>
-
-          <ThemeToggle />
 
           {/* Premium CTA */}
           <Link
@@ -286,6 +284,11 @@ function NavDropdown() {
               {link.label}
             </a>
           ))}
+          <hr className="my-1 border-border" />
+          <div className="flex items-center justify-between px-3 py-1.5">
+            <span className="text-sm">Theme</span>
+            <ThemeSwitch />
+          </div>
         </div>
       )}
     </div>
