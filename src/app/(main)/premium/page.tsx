@@ -2,7 +2,7 @@ import { getAnonClient } from "@/lib/supabase/anon";
 import ReactMarkdown from "react-markdown";
 import type { Metadata } from "next";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
   const supabase = getAnonClient();

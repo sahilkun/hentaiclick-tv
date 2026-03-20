@@ -44,6 +44,6 @@ export const AVATAR_ALLOWED_TYPES = [
   "image/gif",
 ];
 
-export const SITE_NAME = "HentaiClick TV";
+export const SITE_NAME = "HentaiClick";
 export const SITE_DESCRIPTION =
   "Watch the highest quality hentai in 4K, 1080p, and HD for free.";

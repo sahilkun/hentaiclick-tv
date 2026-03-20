@@ -1,54 +1,46 @@
 "use client";
 
-import Script from "next/script";
+import { useEffect } from "react";
 
 export function DevToolsGuard() {
-  if (process.env.NODE_ENV !== "production") return null;
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") return;
 
-  return (
-    <Script id="devtools-guard" strategy="beforeInteractive">
-      {`(function(){
-  document.addEventListener("keydown",function(e){
-    if(e.key==="F12"){e.preventDefault();return}
-    if((e.ctrlKey||e.metaKey)&&e.shiftKey&&"ijc".indexOf(e.key.toLowerCase())>-1){e.preventDefault();return}
-    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="u"){e.preventDefault();return}
-  },true);
+    const init = async () => {
+      const DisableDevtool = (await import("disable-devtool")).default;
 
-  function nuke(){
-    // Stop all network activity
-    window.stop();
-    // Kill all media elements
-    try{
-      var m=document.querySelectorAll("video,audio");
-      for(var i=0;i<m.length;i++){
-        m[i].pause();
-        m[i].removeAttribute("src");
-        m[i].load();
-      }
-    }catch(e){}
-    // Destroy entire document - kills HLS.js buffer and all state
-    try{
-      document.write("");
-      document.close();
-    }catch(e){}
-    // Redirect
-    window.location.replace(window.location.href);
-  }
+      DisableDevtool({
+        ondevtoolopen: () => {
+          // Kill media and nuke the page
+          try {
+            const m = document.querySelectorAll("video,audio,source");
+            m.forEach((el: any) => {
+              el.pause?.();
+              el.removeAttribute("src");
+              el.load?.();
+            });
+          } catch (e) {}
+          try {
+            document.write("");
+            document.close();
+          } catch (e) {}
+          window.location.replace(window.location.href);
+        },
+        disableMenu: false,     // don't block right-click
+        disableSelect: false,
+        disableCopy: false,
+        disableCut: false,
+        disablePaste: false,
+        clearLog: true,
+        interval: 1000,
+        detectors: [0, 1, 3, 4, 6, 7],
+        // 0=RegToString, 1=DefineId, 3=DateToString, 4=FuncToString, 6=Performance, 7=DebugLib
+        // Skipped: 2=Size (false positives), 5=Debugger (extension conflicts)
+      });
+    };
 
-  // Debugger timing - fires every 50ms
-  setInterval(function(){
-    var t=performance.now();
-    (function(){}).constructor("debugger")();
-    if(performance.now()-t>100){nuke();}
-  },50);
+    init();
+  }, []);
 
-  // Window size detection for docked DevTools
-  setInterval(function(){
-    var w=window.outerWidth-window.innerWidth;
-    var h=window.outerHeight-window.innerHeight;
-    if(w>160||h>200){nuke();}
-  },300);
-})();`}
-    </Script>
-  );
+  return null;
 }

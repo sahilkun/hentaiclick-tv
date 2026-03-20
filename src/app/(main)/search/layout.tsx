@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     "Search and filter hentai episodes by genre, studio, year, and rating. Browse thousands of episodes in 4K, 1080p, and HD.",
   openGraph: {
-    title: "Search Episodes | HentaiClick TV",
+    title: "Search Episodes | HentaiClick",
     description:
       "Search and filter hentai episodes by genre, studio, year, and rating.",
     url: "/search",

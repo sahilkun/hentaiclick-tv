@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { isValidRedirect } from "@/lib/validation";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    const redirect = searchParams.get("redirect") || "/";
+    const redirect = isValidRedirect(searchParams.get("redirect"));
 
     if (code) {
       const supabase = createClient();

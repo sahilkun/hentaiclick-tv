@@ -1,3 +1,4 @@
+import { safeJsonLd } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,7 +25,7 @@ export async function generateStaticParams() {
   return (data ?? []).map((s: any) => ({ slug: s.slug }));
 }
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -38,13 +39,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const description =
     series.meta_description ||
-    `Watch all episodes of ${series.title} in HD quality. Stream for free on HentaiClick TV.`;
+    `Watch all episodes of ${series.title} in HD quality. Stream for free on HentaiClick.`;
 
   return {
     title: series.title,
     description,
     openGraph: {
-      title: `${series.title} | HentaiClick TV`,
+      title: `${series.title} | HentaiClick`,
       description,
       url: `/series/${slug}`,
       ...(series.cover_url && {
@@ -116,7 +117,7 @@ export default async function SeriesDetailPage({ params }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify([seriesJsonLd, breadcrumbJsonLd]) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd([seriesJsonLd, breadcrumbJsonLd]) }}
       />
       <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
       <Breadcrumb items={[

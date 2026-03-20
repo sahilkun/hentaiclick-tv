@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   description:
     "Watch the highest quality hentai in 4K, 1080p, and HD for free. Stream and download episodes with subtitles. New releases added daily.",
   openGraph: {
-    title: "HentaiClick TV - Watch Hentai in 4K, 1080p, HD Free",
+    title: "HentaiClick - Watch Hentai in 4K, 1080p, HD Free",
     description:
       "Stream and download the best hentai in 4K, 1080p, and HD. New episodes added daily.",
     url: "/",

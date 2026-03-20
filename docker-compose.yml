@@ -23,7 +23,7 @@ services:
     volumes:
       - meilisearch_data:/meili_data
     environment:
-      - MEILI_MASTER_KEY=${MEILISEARCH_ADMIN_KEY:-masterKey1234567890}
+      - MEILI_MASTER_KEY=${MEILISEARCH_ADMIN_KEY:?MEILISEARCH_ADMIN_KEY must be set}
       - MEILI_ENV=production
       - MEILI_NO_ANALYTICS=true
     healthcheck:

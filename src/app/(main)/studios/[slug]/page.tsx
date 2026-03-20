@@ -1,3 +1,4 @@
+import { safeJsonLd } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import type { Metadata } from "next";
@@ -6,7 +7,7 @@ import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getStudioBySlug, getStudioEpisodes } from "@/lib/queries/studios";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export async function generateStaticParams() {
   const supabase = getAnonClient();
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${studio.name} Episodes`,
     description,
     openGraph: {
-      title: `${studio.name} Episodes | HentaiClick TV`,
+      title: `${studio.name} Episodes | HentaiClick`,
       description,
       url: `/studios/${slug}`,
     },
@@ -63,7 +64,7 @@ export default async function StudioDetailPage({ params }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }}
       />
       <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
         <Breadcrumb items={[

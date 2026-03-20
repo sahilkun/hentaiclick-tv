@@ -1,3 +1,4 @@
+import { safeJsonLd } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
@@ -7,14 +8,14 @@ export const metadata: Metadata = {
   title: "Studios",
   description: "Browse hentai by studio. Find episodes from your favorite studios in 4K, 1080p, and HD.",
   openGraph: {
-    title: "Browse Studios | HentaiClick TV",
+    title: "Browse Studios | HentaiClick",
     description: "Browse hentai by studio. Find episodes from your favorite studios.",
     url: "/studios",
   },
   alternates: { canonical: "/studios" },
 };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function StudiosPage() {
   const supabase = getAnonClient();
@@ -47,7 +48,7 @@ export default async function StudiosPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }}
       />
       <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
         <h1 className="mb-6 text-2xl font-bold">Studios</h1>

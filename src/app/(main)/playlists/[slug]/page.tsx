@@ -80,7 +80,7 @@ export async function generateMetadata({
     title: `${result.playlist.title} - Playlist by ${creatorName}`,
     description,
     openGraph: {
-      title: `${result.playlist.title} | HentaiClick TV`,
+      title: `${result.playlist.title} | HentaiClick`,
       description,
       url: `/playlists/${slug}`,
     },

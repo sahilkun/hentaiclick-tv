@@ -1,3 +1,4 @@
+import { safeJsonLd } from "@/lib/utils";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -26,14 +27,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "HentaiClick TV - Watch Hentai in 4K, 1080p, HD Free",
-    template: "%s | HentaiClick TV",
+    default: "HentaiClick - Watch Hentai in 4K, 1080p, HD Free",
+    template: "%s | HentaiClick",
   },
   description:
     "Watch the highest quality hentai in 4K, 1080p, and HD for free. Stream and download episodes with subtitles.",
   openGraph: {
     type: "website",
-    siteName: "HentaiClick TV",
+    siteName: "HentaiClick",
     locale: "en_US",
   },
   twitter: {
@@ -89,14 +90,14 @@ function OrganizationJsonLd() {
       {
         "@type": "Organization",
         "@id": `${siteUrl}/#organization`,
-        name: "HentaiClick TV",
+        name: "HentaiClick",
         url: siteUrl,
       },
       {
         "@type": "WebSite",
         "@id": `${siteUrl}/#website`,
         url: siteUrl,
-        name: "HentaiClick TV",
+        name: "HentaiClick",
         publisher: { "@id": `${siteUrl}/#organization` },
         potentialAction: {
           "@type": "SearchAction",
@@ -110,7 +111,7 @@ function OrganizationJsonLd() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
     />
   );
 }

@@ -34,3 +34,8 @@ export function getRatingBgColor(rating: number): string {
   if (rating >= 3) return "bg-orange-500";
   return "bg-red-500";
 }
+
+/** Safely serialize JSON-LD to prevent </script> injection */
+export function safeJsonLd(obj: unknown): string {
+  return JSON.stringify(obj).replace(/</g, "\u003c");
+}

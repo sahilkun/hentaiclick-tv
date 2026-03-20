@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     "Browse public playlists created by the community. Curated collections of hentai episodes in 4K, 1080p, and HD.",
   openGraph: {
-    title: "Playlists | HentaiClick TV",
+    title: "Playlists | HentaiClick",
     description:
       "Browse public playlists created by the community. Curated collections of hentai episodes.",
     url: "/playlists",

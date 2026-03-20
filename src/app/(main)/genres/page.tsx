@@ -1,3 +1,4 @@
+import { safeJsonLd } from "@/lib/utils";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getGenres } from "@/lib/queries/episodes";
@@ -6,14 +7,14 @@ export const metadata: Metadata = {
   title: "Genres",
   description: "Browse hentai by genre. Find your favorite categories and discover new ones. Stream in 4K, 1080p, and HD for free.",
   openGraph: {
-    title: "Browse Genres | HentaiClick TV",
+    title: "Browse Genres | HentaiClick",
     description: "Browse hentai by genre. Find your favorite categories and discover new ones.",
     url: "/genres",
   },
   alternates: { canonical: "/genres" },
 };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function GenresPage() {
   const genres = await getGenres();
@@ -41,7 +42,7 @@ export default async function GenresPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }}
       />
       <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
         <h1 className="mb-6 text-2xl font-bold">Genres</h1>

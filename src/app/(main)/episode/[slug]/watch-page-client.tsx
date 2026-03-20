@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
@@ -74,7 +75,6 @@ interface WatchPageClientProps {
   seriesEpisodes: EpisodeWithRelations[];
   studioEpisodes: EpisodeWithRelations[];
   popularWeekly: EpisodeWithRelations[];
-  playlistId?: string;
 }
 
 export function WatchPageClient({
@@ -82,9 +82,10 @@ export function WatchPageClient({
   seriesEpisodes,
   studioEpisodes,
   popularWeekly,
-  playlistId,
 }: WatchPageClientProps) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const playlistId = searchParams.get("playlist") ?? undefined;
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAllGallery, setShowAllGallery] = useState(false);
@@ -187,10 +188,13 @@ export function WatchPageClient({
             {/* Poster overlay — visible until first play */}
             {showPoster && (episode.thumbnail_url || episode.poster_url) && (
               <>
-                <img
+                <Image
                   src={episode.thumbnail_url || episode.poster_url || ""}
                   alt=""
-                  className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover pointer-events-none"
                 />
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
@@ -389,11 +393,12 @@ export function WatchPageClient({
                     rel="noopener noreferrer"
                     className="group/img relative aspect-video overflow-hidden rounded-lg"
                   >
-                    <img
+                    <Image
                       src={url}
                       alt={`Gallery ${i + 1}`}
-                      className="h-full w-full object-cover transition-transform duration-200 group-hover/img:scale-105"
-                      loading="lazy"
+                      fill
+                      sizes="(max-width: 640px) 50vw, 20vw"
+                      className="object-cover transition-transform duration-200 group-hover/img:scale-105"
                     />
                   </a>
                 ))}

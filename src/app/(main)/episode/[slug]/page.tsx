@@ -1,3 +1,4 @@
+import { safeJsonLd } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getEpisodeBySlug, getEpisodesBySeries, getEpisodesByStudio, getEpisodes } from "@/lib/queries/episodes";
@@ -5,7 +6,7 @@ import { getAnonClient } from "@/lib/supabase/anon";
 import { SITE_NAME } from "@/lib/constants";
 import { WatchPageClient } from "./watch-page-client";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export async function generateStaticParams() {
   const supabase = getAnonClient();
@@ -20,7 +21,6 @@ export async function generateStaticParams() {
 
 interface Props {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ playlist?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -85,9 +85,8 @@ function getVideoJsonLd(episode: NonNullable<Awaited<ReturnType<typeof getEpisod
   };
 }
 
-export default async function EpisodeWatchPage({ params, searchParams }: Props) {
+export default async function EpisodeWatchPage({ params }: Props) {
   const { slug } = await params;
-  const { playlist: playlistId } = await searchParams;
   const episode = await getEpisodeBySlug(slug);
   if (!episode) notFound();
 
@@ -144,18 +143,17 @@ export default async function EpisodeWatchPage({ params, searchParams }: Props) 
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }}
       />
       <WatchPageClient
         episode={episode}
         seriesEpisodes={seriesEpisodes}
         studioEpisodes={studioEpisodes}
         popularWeekly={popularWeekly}
-        playlistId={playlistId}
       />
     </>
   );
