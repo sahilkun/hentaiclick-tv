@@ -49,3 +49,4 @@ data.ms/
 
 # windows artifacts
 nul
+nginx/ssl/

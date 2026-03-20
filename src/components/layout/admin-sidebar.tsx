@@ -13,6 +13,7 @@ import {
   FileText,
   ScrollText,
   SearchCode,
+  HardDrive,
   ArrowLeft,
   LogOut,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const adminLinks = [
   { href: "/admin/pages", label: "Pages", icon: FileText },
   { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText },
   { href: "/admin/search", label: "Search Index", icon: SearchCode },
+  { href: "/admin/backups", label: "Backups", icon: HardDrive },
 ];
 
 export function AdminSidebar() {

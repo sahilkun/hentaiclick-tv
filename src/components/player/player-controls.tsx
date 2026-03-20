@@ -32,6 +32,8 @@ interface PlayerControlsProps {
   onChangeSubtitleTrack: (lang: string | null) => void;
   onToggleFullscreen: () => void;
   onToggleSubtitles: () => void;
+  onSkipBackward: () => void;
+  onSkipForward: () => void;
 }
 
 export function PlayerControls({
@@ -49,6 +51,8 @@ export function PlayerControls({
   onChangeSubtitleTrack,
   onToggleFullscreen,
   onToggleSubtitles,
+  onSkipBackward,
+  onSkipForward,
 }: PlayerControlsProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsPanel, setSettingsPanel] = useState<
@@ -171,13 +175,6 @@ export function PlayerControls({
           )}
         </button>
 
-        {/* Time */}
-        <span className="text-xs text-white/80">
-          {formatDuration(state.currentTime)} / {formatDuration(state.duration)}
-        </span>
-
-        <div className="flex-1" />
-
         {/* Volume */}
         <div className="flex items-center gap-1">
           <button
@@ -201,6 +198,39 @@ export function PlayerControls({
             className="h-1 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-primary"
           />
         </div>
+
+        {/* Time */}
+        <span className="text-xs text-white/80">
+          {formatDuration(state.currentTime)} / {formatDuration(state.duration)}
+        </span>
+
+        <div className="flex-1" />
+
+        {/* Skip Backward 10s */}
+        <button
+          type="button"
+          onClick={onSkipBackward}
+          className="flex h-8 w-8 items-center justify-center text-white hover:text-primary"
+          title="Rewind 10s"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
+            <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+            <path d="M10.89 16h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm3.32-1.3c0 .27-.03.51-.09.71-.06.2-.15.37-.27.52s-.27.26-.45.33c-.17.08-.38.12-.6.12-.23 0-.43-.04-.6-.12-.18-.08-.33-.19-.45-.33s-.21-.32-.27-.52c-.06-.2-.09-.44-.09-.71v-.74c0-.27.03-.51.09-.71.06-.2.15-.37.27-.51.12-.15.27-.26.45-.34.17-.08.37-.12.6-.12s.43.04.6.12c.18.08.33.19.45.34.12.14.21.31.27.51.06.2.09.44.09.71v.74zm-.78-.86c0-.35-.06-.6-.17-.76-.11-.15-.28-.23-.49-.23s-.38.08-.49.23c-.11.16-.17.41-.17.76v.98c0 .35.06.6.17.76.12.15.28.23.49.23s.38-.08.49-.23c.11-.15.17-.41.17-.76v-.98z"/>
+          </svg>
+        </button>
+
+        {/* Skip Forward 10s */}
+        <button
+          type="button"
+          onClick={onSkipForward}
+          className="flex h-8 w-8 items-center justify-center text-white hover:text-primary"
+          title="Forward 10s"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
+            <path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/>
+            <path d="M10.89 16h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm3.32-1.3c0 .27-.03.51-.09.71-.06.2-.15.37-.27.52s-.27.26-.45.33c-.17.08-.38.12-.6.12-.23 0-.43-.04-.6-.12-.18-.08-.33-.19-.45-.33s-.21-.32-.27-.52c-.06-.2-.09-.44-.09-.71v-.74c0-.27.03-.51.09-.71.06-.2.15-.37.27-.51.12-.15.27-.26.45-.34.17-.08.37-.12.6-.12s.43.04.6.12c.18.08.33.19.45.34.12.14.21.31.27.51.06.2.09.44.09.71v.74zm-.78-.86c0-.35-.06-.6-.17-.76-.11-.15-.28-.23-.49-.23s-.38.08-.49.23c-.11.16-.17.41-.17.76v.98c0 .35.06.6.17.76.12.15.28.23.49.23s.38-.08.49-.23c.11-.15.17-.41.17-.76v-.98z"/>
+          </svg>
+        </button>
 
         {/* Subtitles toggle */}
         <button

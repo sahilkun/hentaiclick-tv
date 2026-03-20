@@ -62,7 +62,7 @@ const PlaylistSidebar = dynamic(
 import { cn, formatNumber } from "@/lib/utils";
 import { getStreamableQualities } from "@/lib/access";
 import { deriveStreamQualities } from "@/lib/cdn";
-import { QUALITY_LABELS } from "@/lib/constants";
+import { QUALITY_LABELS, WATCH_HISTORY_MAX_ENTRIES } from "@/lib/constants";
 import { WARNING_GENRES, genreColor } from "@/lib/genre-colors";
 import { isAllowedCdnUrl } from "@/lib/validation";
 import { useAuth } from "@/hooks/use-auth";
@@ -174,7 +174,15 @@ export function WatchPageClient({
               availableQualities={streamQualities}
               allowedQualities={allowedQualities}
               onView={handleView}
-              onFirstPlay={() => setShowPoster(false)}
+              onFirstPlay={() => {
+                setShowPoster(false);
+                try {
+                  const h = JSON.parse(localStorage.getItem("watch_history") || "[]")
+                    .filter((e: { slug: string }) => e.slug !== episode.slug);
+                  h.unshift({ slug: episode.slug, title: episode.title, timestamp: Date.now() });
+                  localStorage.setItem("watch_history", JSON.stringify(h.slice(0, WATCH_HISTORY_MAX_ENTRIES)));
+                } catch {}
+              }}
             />
             {/* Poster overlay — visible until first play */}
             {showPoster && (episode.thumbnail_url || episode.poster_url) && (

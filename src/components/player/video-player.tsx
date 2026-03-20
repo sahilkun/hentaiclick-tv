@@ -576,6 +576,72 @@ export function VideoPlayer({
       document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
+  // Push subtitle cues up so they don't overlap with controls
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const repositionCues = (track: TextTrack) => {
+      if (!track.cues) return;
+      for (let j = 0; j < track.cues.length; j++) {
+        const cue = track.cues[j] as VTTCue;
+        // Move cues up - line -4 means 4 lines from bottom
+        cue.line = -4;
+        cue.snapToLines = true;
+      }
+    };
+
+    const onCueChange = (e: Event) => {
+      const track = e.target as TextTrack;
+      if (track.activeCues) {
+        for (let j = 0; j < track.activeCues.length; j++) {
+          const cue = track.activeCues[j] as VTTCue;
+          cue.line = -4;
+          cue.snapToLines = true;
+        }
+      }
+    };
+
+    const onAddTrack = (e: TrackEvent) => {
+      const track = e.track;
+      if (!track) return;
+      // Wait for cues to load
+      const interval = setInterval(() => {
+        if (track.cues && track.cues.length > 0) {
+          clearInterval(interval);
+          repositionCues(track);
+        }
+      }, 100);
+      setTimeout(() => clearInterval(interval), 5000);
+      track.addEventListener("cuechange", onCueChange);
+    };
+
+    // Handle existing tracks
+    for (let i = 0; i < video.textTracks.length; i++) {
+      const track = video.textTracks[i];
+      repositionCues(track);
+      track.addEventListener("cuechange", onCueChange);
+    }
+
+    video.textTracks.addEventListener("addtrack", onAddTrack as EventListener);
+
+    // Also observe DOM for new track elements
+    const observer = new MutationObserver(() => {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        repositionCues(video.textTracks[i]);
+      }
+    });
+    observer.observe(video, { childList: true });
+
+    return () => {
+      observer.disconnect();
+      video.textTracks.removeEventListener("addtrack", onAddTrack as EventListener);
+      for (let i = 0; i < video.textTracks.length; i++) {
+        video.textTracks[i].removeEventListener("cuechange", onCueChange);
+      }
+    };
+  }, []);
+
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -845,6 +911,18 @@ export function VideoPlayer({
           onChangeSubtitleTrack={changeSubtitleTrack}
           onToggleFullscreen={toggleFullscreen}
           onToggleSubtitles={toggleSubtitles}
+          onSkipBackward={() => {
+            const video = videoRef.current;
+            if (!video) return;
+            video.currentTime = Math.max(0, video.currentTime - 10);
+            showToast('-10s');
+          }}
+          onSkipForward={() => {
+            const video = videoRef.current;
+            if (!video) return;
+            video.currentTime = Math.min(video.duration, video.currentTime + 10);
+            showToast('+10s');
+          }}
         />
       </div>
 

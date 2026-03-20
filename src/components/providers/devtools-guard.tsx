@@ -1,103 +1,54 @@
 "use client";
 
-import { useEffect } from "react";
+import Script from "next/script";
 
-/**
- * Anti-DevTools protection layer.
- * Deters casual inspection — not bulletproof against determined users.
- */
 export function DevToolsGuard() {
-  useEffect(() => {
-    // Skip in development
-    if (process.env.NODE_ENV !== "production") return;
+  if (process.env.NODE_ENV !== "production") return null;
 
-    // --- 1. Block keyboard shortcuts ---
-    const onKeyDown = (e: KeyboardEvent) => {
-      // F12
-      if (e.key === "F12") {
-        e.preventDefault();
-        return;
+  return (
+    <Script id="devtools-guard" strategy="beforeInteractive">
+      {`(function(){
+  document.addEventListener("keydown",function(e){
+    if(e.key==="F12"){e.preventDefault();return}
+    if((e.ctrlKey||e.metaKey)&&e.shiftKey&&"ijc".indexOf(e.key.toLowerCase())>-1){e.preventDefault();return}
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="u"){e.preventDefault();return}
+  },true);
+
+  function nuke(){
+    // Stop all network activity
+    window.stop();
+    // Kill all media elements
+    try{
+      var m=document.querySelectorAll("video,audio");
+      for(var i=0;i<m.length;i++){
+        m[i].pause();
+        m[i].removeAttribute("src");
+        m[i].load();
       }
-      // Ctrl+Shift+I / Cmd+Opt+I (Inspect)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i") {
-        e.preventDefault();
-        return;
-      }
-      // Ctrl+Shift+J / Cmd+Opt+J (Console)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "j") {
-        e.preventDefault();
-        return;
-      }
-      // Ctrl+Shift+C / Cmd+Opt+C (Element picker)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "c") {
-        e.preventDefault();
-        return;
-      }
-      // Ctrl+U / Cmd+U (View source)
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "u") {
-        e.preventDefault();
-        return;
-      }
-    };
+    }catch(e){}
+    // Destroy entire document - kills HLS.js buffer and all state
+    try{
+      document.write("");
+      document.close();
+    }catch(e){}
+    // Redirect
+    window.location.replace(window.location.href);
+  }
 
-    // --- 2. Custom right-click context menu (block Inspect/View Source) ---
-    const onContextMenu = (e: MouseEvent) => {
-      // Allow right-click but remove "Inspect" and "View Page Source" by
-      // stripping selection — browsers don't expose a way to filter menu items,
-      // so we only block the keyboard shortcuts that open DevTools.
-    };
+  // Debugger timing - fires every 50ms
+  setInterval(function(){
+    var t=performance.now();
+    (function(){}).constructor("debugger")();
+    if(performance.now()-t>100){nuke();}
+  },50);
 
-    // --- 3. DevTools detection via debugger timing ---
-    let detectionInterval: ReturnType<typeof setInterval>;
-
-    const detectDevTools = () => {
-      const start = performance.now();
-      // debugger statement pauses execution when DevTools is open
-      // eslint-disable-next-line no-debugger
-      debugger;
-      const duration = performance.now() - start;
-      if (duration > 100) {
-        document.body.innerHTML = "";
-        window.location.replace("about:blank");
-      }
-    };
-
-    // --- 4. Console warning ---
-    const warn = () => {
-      console.clear();
-      console.log(
-        "%cStop!",
-        "color: red; font-size: 48px; font-weight: bold;"
-      );
-      console.log(
-        "%cThis browser feature is intended for developers. Do not paste any code here.",
-        "font-size: 16px;"
-      );
-    };
-
-    // --- 5. Detect window resize (devtools docked) ---
-    const threshold = 160;
-    const onResize = () => {
-      const widthDiff = window.outerWidth - window.innerWidth;
-      const heightDiff = window.outerHeight - window.innerHeight;
-      if (widthDiff > threshold || heightDiff > threshold) {
-        document.body.style.display = "none";
-      } else {
-        document.body.style.display = "";
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown, true);
-    window.addEventListener("resize", onResize);
-    detectionInterval = setInterval(detectDevTools, 3000);
-    warn();
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown, true);
-      window.removeEventListener("resize", onResize);
-      clearInterval(detectionInterval);
-    };
-  }, []);
-
-  return null;
+  // Window size detection for docked DevTools
+  setInterval(function(){
+    var w=window.outerWidth-window.innerWidth;
+    var h=window.outerHeight-window.innerHeight;
+    if(w>160||h>200){nuke();}
+  },300);
+})();`}
+    </Script>
+  );
 }

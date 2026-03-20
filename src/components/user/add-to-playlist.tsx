@@ -154,7 +154,7 @@ export function AddToPlaylist({ episodeId, className }: AddToPlaylistProps) {
           "flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors",
           inAnyPlaylist
             ? "border-primary bg-primary/10 text-primary"
-            : "border-border hover:bg-accent"
+            : "border-border hover:bg-accent hover:border-primary/50 hover:scale-105 active:scale-95"
         )}
       >
         <ListPlus className="h-3.5 w-3.5" />
