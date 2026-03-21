@@ -61,6 +61,52 @@ export function PlayerControls({
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState(0);
   const seekBarRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const getSeekPercent = useCallback((clientX: number) => {
+    const bar = seekBarRef.current;
+    if (!bar) return 0;
+    const rect = bar.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+    setIsDragging(true);
+    const touch = e.touches[0];
+    const percent = getSeekPercent(touch.clientX);
+    onSeek(percent * state.duration);
+  }, [getSeekPercent, onSeek, state.duration]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging) return;
+    e.stopPropagation();
+    const touch = e.touches[0];
+    const percent = getSeekPercent(touch.clientX);
+    onSeek(percent * state.duration);
+  }, [isDragging, getSeekPercent, onSeek, state.duration]);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsDragging(true);
+    const percent = getSeekPercent(e.clientX);
+    onSeek(percent * state.duration);
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const p = getSeekPercent(ev.clientX);
+      onSeek(p * state.duration);
+    };
+    const onMouseUp = () => {
+      setIsDragging(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  }, [getSeekPercent, onSeek, state.duration]);
 
   const progress =
     state.duration > 0 ? (state.currentTime / state.duration) * 100 : 0;

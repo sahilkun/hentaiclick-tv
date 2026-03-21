@@ -523,16 +523,16 @@ export function VideoPlayer({
           break;
         case "arrowleft":
           e.preventDefault();
-          video.currentTime = Math.max(0, video.currentTime - 5);
-          showToast("-5s");
+          video.currentTime = Math.max(0, video.currentTime - 10);
+          showToast("-10s");
           break;
         case "arrowright":
           e.preventDefault();
           video.currentTime = Math.min(
             video.duration,
-            video.currentTime + 5
+            video.currentTime + 10
           );
-          showToast("+5s");
+          showToast("+10s");
           break;
         case "arrowup":
           e.preventDefault();
@@ -659,21 +659,50 @@ export function VideoPlayer({
     video.paused ? video.play() : video.pause();
   }, []);
 
-  // YouTube-style click handling: delay single-click to distinguish from double-click
-  const handleVideoClick = useCallback(() => {
+  // Track last tap position for left/right side detection
+  const lastTapXRef = useRef(0);
+  const isTouchRef = useRef(false);
+
+  // Detect touch devices at interaction time
+  const handleTouchStartOnVideo = useCallback(() => {
+    isTouchRef.current = true;
+  }, []);
+
+  // Desktop: double-click = fullscreen, Mobile: double-tap = seek 10s fwd/bwd
+  const handleVideoClick = useCallback((e: React.MouseEvent<HTMLVideoElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    lastTapXRef.current = e.clientX - rect.left;
+    const videoWidth = rect.width;
+
     if (clickTimerRef.current) {
-      // Second click arrived within window → double-click → fullscreen
+      // Double tap/click
       clearTimeout(clickTimerRef.current);
       clickTimerRef.current = undefined;
-      toggleFullscreen();
+
+      if (isTouchRef.current) {
+        // Mobile: seek forward/backward based on tap side
+        const video = videoRef.current;
+        if (!video) return;
+        if (lastTapXRef.current < videoWidth / 2) {
+          video.currentTime = Math.max(0, video.currentTime - 10);
+          showToast("-10s");
+        } else {
+          video.currentTime = Math.min(video.duration, video.currentTime + 10);
+          showToast("+10s");
+        }
+      } else {
+        // Desktop: toggle fullscreen
+        toggleFullscreen();
+      }
+      isTouchRef.current = false;
     } else {
-      // First click → wait to see if a second click follows
       clickTimerRef.current = setTimeout(() => {
         clickTimerRef.current = undefined;
         togglePlay();
+        isTouchRef.current = false;
       }, 250);
     }
-  }, [toggleFullscreen, togglePlay]);
+  }, [togglePlay, toggleFullscreen, showToast]);
 
   const seek = useCallback((time: number) => {
     const video = videoRef.current;
@@ -848,12 +877,14 @@ export function VideoPlayer({
         ref={videoRef}
         className="h-full w-full cursor-pointer"
         onClick={handleVideoClick}
+        onTouchStart={handleTouchStartOnVideo}
+        onTouchMove={resetHideTimer}
         playsInline
       />
 
       {/* Loading spinner */}
       {state.loading && !state.error && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center pb-12">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
         </div>
       )}
@@ -879,7 +910,7 @@ export function VideoPlayer({
         <button
           type="button"
           onClick={togglePlay}
-          className="absolute inset-0 flex items-center justify-center"
+          className="absolute inset-0 flex items-center justify-center pb-12"
         >
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
             <svg viewBox="0 0 24 24" className="ml-1 h-8 w-8 fill-white">
