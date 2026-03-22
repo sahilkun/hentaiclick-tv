@@ -58,117 +58,161 @@ export function PlayerControls({
   const [settingsPanel, setSettingsPanel] = useState<
     "main" | "quality" | "speed" | "audio" | "subtitles"
   >("main");
+
+  // Seekbar state
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverX, setHoverX] = useState(0);
-  const seekBarRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragTime, setDragTime] = useState<number | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const seekBarRef = useRef<HTMLDivElement>(null);
 
-  const getSeekPercent = useCallback((clientX: number) => {
-    const bar = seekBarRef.current;
-    if (!bar) return 0;
-    const rect = bar.getBoundingClientRect();
-    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-  }, []);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    e.stopPropagation();
-    setIsDragging(true);
-    const touch = e.touches[0];
-    const percent = getSeekPercent(touch.clientX);
-    onSeek(percent * state.duration);
-  }, [getSeekPercent, onSeek, state.duration]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging) return;
-    e.stopPropagation();
-    const touch = e.touches[0];
-    const percent = getSeekPercent(touch.clientX);
-    onSeek(percent * state.duration);
-  }, [isDragging, getSeekPercent, onSeek, state.duration]);
-
-  const handleTouchEnd = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    setIsDragging(true);
-    const percent = getSeekPercent(e.clientX);
-    onSeek(percent * state.duration);
-
-    const onMouseMove = (ev: MouseEvent) => {
-      const p = getSeekPercent(ev.clientX);
-      onSeek(p * state.duration);
-    };
-    const onMouseUp = () => {
-      setIsDragging(false);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-  }, [getSeekPercent, onSeek, state.duration]);
-
-  const progress =
-    state.duration > 0 ? (state.currentTime / state.duration) * 100 : 0;
-  const bufferedProgress =
-    state.duration > 0 ? (state.buffered / state.duration) * 100 : 0;
-
-  const handleSeekBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-    onSeek(percent * state.duration);
-  };
-
-  const handleSeekBarHover = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const percent = (e.clientX - rect.left) / rect.width;
-      const time = percent * state.duration;
-      setHoverTime(time);
-      setHoverX(e.clientX - rect.left);
+  const getTimeFromX = useCallback(
+    (clientX: number) => {
+      const bar = seekBarRef.current;
+      if (!bar || state.duration <= 0) return 0;
+      const rect = bar.getBoundingClientRect();
+      const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      return percent * state.duration;
     },
     [state.duration]
   );
 
-  const handleSeekBarLeave = useCallback(() => {
-    setHoverTime(null);
+  const getLocalX = useCallback((clientX: number) => {
+    const bar = seekBarRef.current;
+    if (!bar) return 0;
+    const rect = bar.getBoundingClientRect();
+    return Math.max(0, Math.min(rect.width, clientX - rect.left));
   }, []);
 
-  // Find thumbnail for current hover time
-  const hoverThumb =
-    hoverTime !== null
-      ? thumbCues.find((c) => hoverTime >= c.start && hoverTime < c.end)
+  // Mouse hover (not dragging)
+  const handleSeekBarHover = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (isDragging) return;
+      setHoverTime(getTimeFromX(e.clientX));
+      setHoverX(getLocalX(e.clientX));
+    },
+    [isDragging, getTimeFromX, getLocalX]
+  );
+
+  const handleSeekBarLeave = useCallback(() => {
+    if (!isDragging) setHoverTime(null);
+  }, [isDragging]);
+
+  // Mouse drag
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsDragging(true);
+      const time = getTimeFromX(e.clientX);
+      const x = getLocalX(e.clientX);
+      setDragTime(time);
+      setDragX(x);
+      onSeek(time);
+
+      const onMouseMove = (ev: MouseEvent) => {
+        const t = getTimeFromX(ev.clientX);
+        const lx = getLocalX(ev.clientX);
+        setDragTime(t);
+        setDragX(lx);
+        onSeek(t);
+      };
+      const onMouseUp = (ev: MouseEvent) => {
+        const t = getTimeFromX(ev.clientX);
+        onSeek(t);
+        setIsDragging(false);
+        setDragTime(null);
+        setHoverTime(null);
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      };
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    },
+    [getTimeFromX, getLocalX, onSeek]
+  );
+
+  // Touch drag
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.stopPropagation();
+      setIsDragging(true);
+      const touch = e.touches[0];
+      const time = getTimeFromX(touch.clientX);
+      const x = getLocalX(touch.clientX);
+      setDragTime(time);
+      setDragX(x);
+      onSeek(time);
+    },
+    [getTimeFromX, getLocalX, onSeek]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDragging) return;
+      e.stopPropagation();
+      const touch = e.touches[0];
+      const time = getTimeFromX(touch.clientX);
+      const x = getLocalX(touch.clientX);
+      setDragTime(time);
+      setDragX(x);
+      onSeek(time);
+    },
+    [isDragging, getTimeFromX, getLocalX, onSeek]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    setDragTime(null);
+  }, []);
+
+  // Preview: show thumbnail during hover OR drag
+  const previewTime = isDragging ? dragTime : hoverTime;
+  const previewX = isDragging ? dragX : hoverX;
+  const showPreview = previewTime !== null;
+
+  const previewThumb =
+    previewTime !== null
+      ? thumbCues.find((c) => previewTime >= c.start && previewTime < c.end)
       : null;
+
+  // Progress bar position follows drag if dragging
+  const progress =
+    state.duration > 0
+      ? isDragging && dragTime !== null
+        ? (dragTime / state.duration) * 100
+        : (state.currentTime / state.duration) * 100
+      : 0;
+  const bufferedProgress =
+    state.duration > 0 ? (state.buffered / state.duration) * 100 : 0;
 
   return (
     <div className="bg-gradient-to-t from-black/90 to-transparent px-4 pb-3 pt-8">
       {/* Seek bar */}
       <div className="relative mb-2">
         {/* Thumbnail preview tooltip */}
-        {hoverTime !== null && (
+        {showPreview && (
           <div
-            className="absolute bottom-4 -translate-x-1/2 pointer-events-none"
-            style={{ left: hoverX }}
+            className="absolute bottom-4 -translate-x-1/2 pointer-events-none z-10"
+            style={{ left: previewX }}
           >
-            {hoverThumb ? (
+            {previewThumb ? (
               <div className="mb-1 overflow-hidden rounded border border-white/20 bg-black">
-                {hoverThumb.x === 0 && hoverThumb.y === 0 ? (
-                  /* Individual thumbnail image */
+                {previewThumb.x === 0 && previewThumb.y === 0 ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
-                    src={hoverThumb.url}
+                    src={previewThumb.url}
                     alt=""
-                    style={{ width: hoverThumb.w, height: hoverThumb.h }}
+                    style={{ width: previewThumb.w, height: previewThumb.h }}
                     className="object-cover"
                   />
                 ) : (
-                  /* Sprite sheet thumbnail */
                   <div
                     style={{
-                      width: hoverThumb.w,
-                      height: hoverThumb.h,
-                      backgroundImage: `url(${hoverThumb.url})`,
-                      backgroundPosition: `-${hoverThumb.x}px -${hoverThumb.y}px`,
+                      width: previewThumb.w,
+                      height: previewThumb.h,
+                      backgroundImage: `url(${previewThumb.url})`,
+                      backgroundPosition: `-${previewThumb.x}px -${previewThumb.y}px`,
                       backgroundSize: "auto",
                     }}
                   />
@@ -176,20 +220,26 @@ export function PlayerControls({
               </div>
             ) : null}
             <div className="text-center text-xs text-white bg-black/80 rounded px-1.5 py-0.5">
-              {formatDuration(hoverTime)}
+              {formatDuration(previewTime!)}
             </div>
           </div>
         )}
 
         <div
           ref={seekBarRef}
-          className="group/seek relative cursor-pointer pb-[4px] pt-4"
-          onClick={handleSeekBarClick}
+          className="group/seek relative cursor-pointer pb-[4px] pt-4 touch-none"
           onMouseMove={handleSeekBarHover}
           onMouseLeave={handleSeekBarLeave}
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {/* Visual seek bar (thin line at bottom of hit area) */}
-          <div className="relative h-1 rounded-full bg-white/30 transition-all group-hover/seek:h-1.5">
+          {/* Visual seek bar */}
+          <div className={cn(
+            "relative rounded-full bg-white/30 transition-all",
+            isDragging ? "h-1.5" : "h-1 group-hover/seek:h-1.5"
+          )}>
             {/* Buffered */}
             <div
               className="absolute h-full rounded-full bg-white/20"
@@ -200,7 +250,10 @@ export function PlayerControls({
               className="relative h-full rounded-full bg-primary"
               style={{ width: `${progress}%` }}
             >
-              <div className="absolute -right-1.5 -top-1 h-3 w-3 rounded-full bg-primary opacity-0 transition-opacity group-hover/seek:opacity-100" />
+              <div className={cn(
+                "absolute -right-1.5 -top-1 h-3 w-3 rounded-full bg-primary transition-opacity",
+                isDragging ? "opacity-100 scale-125" : "opacity-0 group-hover/seek:opacity-100"
+              )} />
             </div>
           </div>
         </div>
@@ -209,30 +262,14 @@ export function PlayerControls({
       {/* Controls row */}
       <div className="flex items-center gap-2">
         {/* Play/Pause */}
-        <button
-          type="button"
-          onClick={onTogglePlay}
-          className="flex h-8 w-8 items-center justify-center text-white hover:text-primary"
-        >
-          {state.playing ? (
-            <Pause className="h-5 w-5" />
-          ) : (
-            <Play className="h-5 w-5" />
-          )}
+        <button type="button" onClick={onTogglePlay} className="flex h-8 w-8 items-center justify-center text-white hover:text-primary">
+          {state.playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
         </button>
 
         {/* Volume */}
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onToggleMute}
-            className="flex h-8 w-8 items-center justify-center text-white hover:text-primary"
-          >
-            {state.muted || state.volume === 0 ? (
-              <VolumeX className="h-5 w-5" />
-            ) : (
-              <Volume2 className="h-5 w-5" />
-            )}
+          <button type="button" onClick={onToggleMute} className="flex h-8 w-8 items-center justify-center text-white hover:text-primary">
+            {state.muted || state.volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
           </button>
           <input
             type="range"
@@ -245,20 +282,15 @@ export function PlayerControls({
           />
         </div>
 
-        {/* Time */}
+        {/* Time - shows drag time while dragging */}
         <span className="text-xs text-white/80">
-          {formatDuration(state.currentTime)} / {formatDuration(state.duration)}
+          {formatDuration(isDragging && dragTime !== null ? dragTime : state.currentTime)} / {formatDuration(state.duration)}
         </span>
 
         <div className="flex-1" />
 
         {/* Skip Backward 10s */}
-        <button
-          type="button"
-          onClick={onSkipBackward}
-          className="flex h-8 w-8 items-center justify-center text-white hover:text-primary"
-          title="Rewind 10s"
-        >
+        <button type="button" onClick={onSkipBackward} className="flex h-8 w-8 items-center justify-center text-white hover:text-primary" title="Rewind 10s">
           <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
             <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
             <path d="M10.89 16h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm3.32-1.3c0 .27-.03.51-.09.71-.06.2-.15.37-.27.52s-.27.26-.45.33c-.17.08-.38.12-.6.12-.23 0-.43-.04-.6-.12-.18-.08-.33-.19-.45-.33s-.21-.32-.27-.52c-.06-.2-.09-.44-.09-.71v-.74c0-.27.03-.51.09-.71.06-.2.15-.37.27-.51.12-.15.27-.26.45-.34.17-.08.37-.12.6-.12s.43.04.6.12c.18.08.33.19.45.34.12.14.21.31.27.51.06.2.09.44.09.71v.74zm-.78-.86c0-.35-.06-.6-.17-.76-.11-.15-.28-.23-.49-.23s-.38.08-.49.23c-.11.16-.17.41-.17.76v.98c0 .35.06.6.17.76.12.15.28.23.49.23s.38-.08.49-.23c.11-.15.17-.41.17-.76v-.98z"/>
@@ -266,12 +298,7 @@ export function PlayerControls({
         </button>
 
         {/* Skip Forward 10s */}
-        <button
-          type="button"
-          onClick={onSkipForward}
-          className="flex h-8 w-8 items-center justify-center text-white hover:text-primary"
-          title="Forward 10s"
-        >
+        <button type="button" onClick={onSkipForward} className="flex h-8 w-8 items-center justify-center text-white hover:text-primary" title="Forward 10s">
           <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
             <path d="M18 13c0 3.31-2.69 6-6 6s-6-2.69-6-6 2.69-6 6-6v4l5-5-5-5v4c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8h-2z"/>
             <path d="M10.89 16h-.85v-3.26l-1.01.31v-.69l1.77-.63h.09V16zm3.32-1.3c0 .27-.03.51-.09.71-.06.2-.15.37-.27.52s-.27.26-.45.33c-.17.08-.38.12-.6.12-.23 0-.43-.04-.6-.12-.18-.08-.33-.19-.45-.33s-.21-.32-.27-.52c-.06-.2-.09-.44-.09-.71v-.74c0-.27.03-.51.09-.71.06-.2.15-.37.27-.51.12-.15.27-.26.45-.34.17-.08.37-.12.6-.12s.43.04.6.12c.18.08.33.19.45.34.12.14.21.31.27.51.06.2.09.44.09.71v.74zm-.78-.86c0-.35-.06-.6-.17-.76-.11-.15-.28-.23-.49-.23s-.38.08-.49.23c-.11.16-.17.41-.17.76v.98c0 .35.06.6.17.76.12.15.28.23.49.23s.38-.08.49-.23c.11-.15.17-.41.17-.76v-.98z"/>
@@ -283,10 +310,7 @@ export function PlayerControls({
           type="button"
           onClick={
             state.availableSubtitles.length > 1
-              ? () => {
-                  setSettingsOpen(true);
-                  setSettingsPanel("subtitles");
-                }
+              ? () => { setSettingsOpen(true); setSettingsPanel("subtitles"); }
               : onToggleSubtitles
           }
           className={cn(
@@ -302,10 +326,7 @@ export function PlayerControls({
         <div className="relative">
           <button
             type="button"
-            onClick={() => {
-              setSettingsOpen(!settingsOpen);
-              setSettingsPanel("main");
-            }}
+            onClick={() => { setSettingsOpen(!settingsOpen); setSettingsPanel("main"); }}
             className="flex h-8 w-8 items-center justify-center text-white hover:text-primary"
           >
             <Settings className="h-5 w-5" />
@@ -315,200 +336,76 @@ export function PlayerControls({
             <div className="absolute bottom-10 right-0 w-48 rounded-lg border border-white/10 bg-black/95 py-1 text-sm text-white shadow-xl">
               {settingsPanel === "main" && (
                 <>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
-                    onClick={() => setSettingsPanel("quality")}
-                  >
+                  <button type="button" className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10" onClick={() => setSettingsPanel("quality")}>
                     <span>Quality</span>
-                    <span className="text-xs text-white/60">
-                      {state.quality === "auto"
-                        ? "Auto"
-                        : QUALITY_LABELS[state.quality as Quality] ??
-                          `${state.quality}p`}
-                    </span>
+                    <span className="text-xs text-white/60">{state.quality === "auto" ? "Auto" : QUALITY_LABELS[state.quality as Quality] ?? `${state.quality}p`}</span>
                   </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
-                    onClick={() => setSettingsPanel("speed")}
-                  >
+                  <button type="button" className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10" onClick={() => setSettingsPanel("speed")}>
                     <span>Speed</span>
-                    <span className="text-xs text-white/60">
-                      {state.playbackSpeed}x
-                    </span>
+                    <span className="text-xs text-white/60">{state.playbackSpeed}x</span>
                   </button>
                   {state.availableAudioTracks.length > 1 && (
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
-                      onClick={() => setSettingsPanel("audio")}
-                    >
+                    <button type="button" className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10" onClick={() => setSettingsPanel("audio")}>
                       <span>Audio</span>
-                      <span className="text-xs text-white/60">
-                        {state.availableAudioTracks[state.audioTrack]?.name ??
-                          "Default"}
-                      </span>
+                      <span className="text-xs text-white/60">{state.availableAudioTracks[state.audioTrack]?.name ?? "Default"}</span>
                     </button>
                   )}
                   {state.availableSubtitles.length > 0 && (
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
-                      onClick={() => setSettingsPanel("subtitles")}
-                    >
+                    <button type="button" className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10" onClick={() => setSettingsPanel("subtitles")}>
                       <span>Subtitles</span>
-                      <span className="text-xs text-white/60">
-                        {state.subtitleTrack
-                          ? state.availableSubtitles.find(
-                              (s) => s.lang === state.subtitleTrack
-                            )?.label ?? "On"
-                          : "Off"}
-                      </span>
+                      <span className="text-xs text-white/60">{state.subtitleTrack ? state.availableSubtitles.find((s) => s.lang === state.subtitleTrack)?.label ?? "On" : "Off"}</span>
                     </button>
                   )}
                 </>
               )}
-
               {settingsPanel === "quality" && (
                 <>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10"
-                    onClick={() => setSettingsPanel("main")}
-                  >
-                    ← Quality
-                  </button>
-                  {availableQualities
-                    .slice()
-                    .reverse()
-                    .map((q) => {
-                      const allowed = allowedQualities.includes(q);
-                      return (
-                        <button
-                          key={q}
-                          type="button"
-                          disabled={!allowed}
-                          className={cn(
-                            "flex w-full items-center justify-between px-3 py-2",
-                            allowed
-                              ? "hover:bg-white/10"
-                              : "cursor-not-allowed opacity-40"
-                          )}
-                          onClick={() => {
-                            if (allowed) {
-                              onChangeQuality(q as Quality);
-                              setSettingsOpen(false);
-                            }
-                          }}
-                        >
-                          <span>
-                            {QUALITY_LABELS[q as Quality] ?? `${q}p`}
-                          </span>
-                          {!allowed && (
-                            <span className="text-xs">🔒</span>
-                          )}
-                          {state.quality === q && allowed && (
-                            <span className="text-xs text-primary">●</span>
-                          )}
-                        </button>
-                      );
-                    })}
+                  <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10" onClick={() => setSettingsPanel("main")}>{"← Quality"}</button>
+                  {availableQualities.slice().reverse().map((q) => {
+                    const allowed = allowedQualities.includes(q);
+                    return (
+                      <button key={q} type="button" disabled={!allowed} className={cn("flex w-full items-center justify-between px-3 py-2", allowed ? "hover:bg-white/10" : "cursor-not-allowed opacity-40")} onClick={() => { if (allowed) { onChangeQuality(q as Quality); setSettingsOpen(false); } }}>
+                        <span>{QUALITY_LABELS[q as Quality] ?? `${q}p`}</span>
+                        {!allowed && <span className="text-xs">{"🔒"}</span>}
+                        {state.quality === q && allowed && <span className="text-xs text-primary">{"●"}</span>}
+                      </button>
+                    );
+                  })}
                 </>
               )}
-
               {settingsPanel === "speed" && (
                 <>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10"
-                    onClick={() => setSettingsPanel("main")}
-                  >
-                    ← Speed
-                  </button>
+                  <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10" onClick={() => setSettingsPanel("main")}>{"← Speed"}</button>
                   {PLAYBACK_SPEEDS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
-                      onClick={() => {
-                        onChangeSpeed(s);
-                        setSettingsOpen(false);
-                      }}
-                    >
+                    <button key={s} type="button" className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10" onClick={() => { onChangeSpeed(s); setSettingsOpen(false); }}>
                       <span>{s}x</span>
-                      {state.playbackSpeed === s && (
-                        <span className="text-xs text-primary">●</span>
-                      )}
+                      {state.playbackSpeed === s && <span className="text-xs text-primary">{"●"}</span>}
                     </button>
                   ))}
                 </>
               )}
-
               {settingsPanel === "audio" && (
                 <>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10"
-                    onClick={() => setSettingsPanel("main")}
-                  >
-                    ← Audio
-                  </button>
+                  <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10" onClick={() => setSettingsPanel("main")}>{"← Audio"}</button>
                   {state.availableAudioTracks.map((track) => (
-                    <button
-                      key={track.id}
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
-                      onClick={() => {
-                        onChangeAudioTrack(track.id);
-                        setSettingsOpen(false);
-                      }}
-                    >
+                    <button key={track.id} type="button" className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10" onClick={() => { onChangeAudioTrack(track.id); setSettingsOpen(false); }}>
                       <span>{track.name}</span>
-                      {state.audioTrack === track.id && (
-                        <span className="text-xs text-primary">●</span>
-                      )}
+                      {state.audioTrack === track.id && <span className="text-xs text-primary">{"●"}</span>}
                     </button>
                   ))}
                 </>
               )}
-
               {settingsPanel === "subtitles" && (
                 <>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10"
-                    onClick={() => setSettingsPanel("main")}
-                  >
-                    ← Subtitles
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
-                    onClick={() => {
-                      onChangeSubtitleTrack(null);
-                      setSettingsOpen(false);
-                    }}
-                  >
+                  <button type="button" className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/60 hover:bg-white/10" onClick={() => setSettingsPanel("main")}>{"← Subtitles"}</button>
+                  <button type="button" className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10" onClick={() => { onChangeSubtitleTrack(null); setSettingsOpen(false); }}>
                     <span>Off</span>
-                    {!state.subtitleTrack && (
-                      <span className="text-xs text-primary">●</span>
-                    )}
+                    {!state.subtitleTrack && <span className="text-xs text-primary">{"●"}</span>}
                   </button>
                   {state.availableSubtitles.map((sub) => (
-                    <button
-                      key={sub.lang}
-                      type="button"
-                      className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10"
-                      onClick={() => {
-                        onChangeSubtitleTrack(sub.lang);
-                        setSettingsOpen(false);
-                      }}
-                    >
+                    <button key={sub.lang} type="button" className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/10" onClick={() => { onChangeSubtitleTrack(sub.lang); setSettingsOpen(false); }}>
                       <span>{sub.label}</span>
-                      {state.subtitleTrack === sub.lang && (
-                        <span className="text-xs text-primary">●</span>
-                      )}
+                      {state.subtitleTrack === sub.lang && <span className="text-xs text-primary">{"●"}</span>}
                     </button>
                   ))}
                 </>
@@ -518,16 +415,8 @@ export function PlayerControls({
         </div>
 
         {/* Fullscreen */}
-        <button
-          type="button"
-          onClick={onToggleFullscreen}
-          className="flex h-8 w-8 items-center justify-center text-white hover:text-primary"
-        >
-          {state.fullscreen ? (
-            <Minimize className="h-5 w-5" />
-          ) : (
-            <Maximize className="h-5 w-5" />
-          )}
+        <button type="button" onClick={onToggleFullscreen} className="flex h-8 w-8 items-center justify-center text-white hover:text-primary">
+          {state.fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
         </button>
       </div>
     </div>
