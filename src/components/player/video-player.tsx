@@ -183,6 +183,7 @@ export function VideoPlayer({
   const currentQualityRef = useRef<Quality>(720);
   const subtitleBlobUrlRef = useRef<string | null>(null);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const seekDraggingRef = useRef(false);
   const setupGenRef = useRef(0);
   const MAX_RETRIES = 3;
 
@@ -496,7 +497,7 @@ export function VideoPlayer({
     setControlsVisible(true);
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     hideTimeoutRef.current = setTimeout(() => {
-      if (videoRef.current && !videoRef.current.paused) {
+      if (videoRef.current && !videoRef.current.paused && !seekDraggingRef.current) {
         setControlsVisible(false);
       }
     }, 3000);
@@ -948,6 +949,7 @@ export function VideoPlayer({
             video.currentTime = Math.max(0, video.currentTime - 10);
             showToast('-10s');
           }}
+          onDraggingChange={(dragging) => { seekDraggingRef.current = dragging; if (dragging) { setControlsVisible(true); if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current); } else { resetHideTimer(); } }}
           onSkipForward={() => {
             const video = videoRef.current;
             if (!video) return;

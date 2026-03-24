@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { safeJsonLd } from "@/lib/utils";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
@@ -60,6 +61,10 @@ export default function RootLayout({
         {process.env.NEXT_PUBLIC_SUPABASE_URL && (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         )}
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-J245QRXDYG" strategy="afterInteractive" />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {"window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-J245QRXDYG');"}
+        </Script>
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <a

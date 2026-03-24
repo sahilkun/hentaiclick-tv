@@ -34,6 +34,7 @@ interface PlayerControlsProps {
   onToggleSubtitles: () => void;
   onSkipBackward: () => void;
   onSkipForward: () => void;
+  onDraggingChange?: (dragging: boolean) => void;
 }
 
 export function PlayerControls({
@@ -53,6 +54,7 @@ export function PlayerControls({
   onToggleSubtitles,
   onSkipBackward,
   onSkipForward,
+  onDraggingChange,
 }: PlayerControlsProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsPanel, setSettingsPanel] = useState<
@@ -103,7 +105,7 @@ export function PlayerControls({
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      setIsDragging(true);
+      setIsDragging(true); onDraggingChange?.(true);
       const time = getTimeFromX(e.clientX);
       const x = getLocalX(e.clientX);
       setDragTime(time);
@@ -120,7 +122,7 @@ export function PlayerControls({
       const onMouseUp = (ev: MouseEvent) => {
         const t = getTimeFromX(ev.clientX);
         onSeek(t);
-        setIsDragging(false);
+        setIsDragging(false); onDraggingChange?.(false);
         setDragTime(null);
         setHoverTime(null);
         window.removeEventListener("mousemove", onMouseMove);
@@ -136,7 +138,7 @@ export function PlayerControls({
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
       e.stopPropagation();
-      setIsDragging(true);
+      setIsDragging(true); onDraggingChange?.(true);
       const touch = e.touches[0];
       const time = getTimeFromX(touch.clientX);
       const x = getLocalX(touch.clientX);
@@ -162,7 +164,7 @@ export function PlayerControls({
   );
 
   const handleTouchEnd = useCallback(() => {
-    setIsDragging(false);
+    setIsDragging(false); onDraggingChange?.(false);
     setDragTime(null);
   }, []);
 
