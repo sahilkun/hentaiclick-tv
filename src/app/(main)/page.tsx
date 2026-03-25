@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     description:
       "Stream and download the best hentai in 4K, 1080p, and HD. New episodes added daily.",
     url: "/",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   alternates: { canonical: "/" },
 };
