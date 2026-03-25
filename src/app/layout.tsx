@@ -61,8 +61,8 @@ export default function RootLayout({
         {process.env.NEXT_PUBLIC_SUPABASE_URL && (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         )}
-        <Script src="https://www.googletagmanager.com/gtag/js?id=G-J245QRXDYG" strategy="afterInteractive" />
-        <Script id="google-analytics" strategy="afterInteractive">
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-J245QRXDYG" strategy="beforeInteractive" />
+        <Script id="google-analytics" strategy="beforeInteractive">
           {"window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-J245QRXDYG');"}
         </Script>
       </head>

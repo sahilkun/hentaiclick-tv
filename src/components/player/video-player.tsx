@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { TriangleAlert, RotateCcw } from "lucide-react";
 import Hls from "hls.js";
 import { cn } from "@/lib/utils";
-import { getStreamUrl, getThumbsUrl, getSubtitleEntries, LANGUAGE_LABELS } from "@/lib/cdn";
+import { getStreamUrl, getMasterUrl, getThumbsUrl, getSubtitleEntries, LANGUAGE_LABELS } from "@/lib/cdn";
 import type { Quality } from "@/lib/constants";
 import {
   loadPreferences,
@@ -242,7 +242,7 @@ export function VideoPlayer({
     const existingTracks = video.querySelectorAll("track");
     existingTracks.forEach((t) => t.remove());
 
-    const streamUrl = getStreamUrl(streamLinks, quality);
+    const streamUrl = getMasterUrl(streamLinks) ?? getStreamUrl(streamLinks, quality);
     if (!streamUrl) return;
 
     if (Hls.isSupported()) {
@@ -274,7 +274,7 @@ export function VideoPlayer({
       hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
         const tracks: AudioTrackInfo[] = hls.audioTracks.map((t, i) => ({
           id: i,
-          name: LANGUAGE_LABELS[t.lang ?? ""] ?? t.name ?? `Track ${i + 1}`,
+          name: t.name ?? LANGUAGE_LABELS[t.lang ?? ""] ?? `Track ${i + 1}`,
           lang: t.lang ?? `track-${i}`,
         }));
         setState((s) => ({ ...s, availableAudioTracks: tracks }));
@@ -283,6 +283,21 @@ export function VideoPlayer({
           (t) => t.lang === prefs.preferredAudioLang
         );
         if (preferred >= 0) hls.audioTrack = preferred;
+      });
+
+      // Populate subtitle tracks from HLS manifest (for master playlist)
+      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+        const subs: SubtitleTrackInfo[] = hls.subtitleTracks.map((t, i) => ({
+          id: t.lang ?? String(i),
+          label: t.name ?? LANGUAGE_LABELS[t.lang ?? ""] ?? "Subtitles",
+          lang: t.lang ?? String(i),
+          url: "",
+        }));
+        if (subs.length > 0) {
+          setState((s) => ({ ...s, availableSubtitles: subs, subtitleTrack: subs[0].lang, subtitlesEnabled: true }));
+          hls.subtitleTrack = 0;
+          hls.subtitleDisplay = true;
+        }
       });
 
       hls.on(Hls.Events.ERROR, (_, data) => {
@@ -345,9 +360,10 @@ export function VideoPlayer({
       setThumbCues([]);
     }
 
-    // Load subtitle tracks
+    // Load subtitle tracks (skip if master playlist handles them)
+    const usingMaster = !!getMasterUrl(streamLinks);
     const entries = getSubtitleEntries(subtitleLinks);
-    if (entries.length > 0) {
+    if (entries.length > 0 && !usingMaster) {
       const prefs = loadPreferences();
       const subtitleInfos: SubtitleTrackInfo[] = entries.map((e) => ({
         id: e.lang,
@@ -731,11 +747,18 @@ export function VideoPlayer({
   const toggleSubtitles = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-
-    const tracks = video.textTracks;
-    if (tracks.length === 0) return;
+    const hls = hlsRef.current;
 
     const newEnabled = !state.subtitlesEnabled;
+
+    // Use HLS.js API when available (master playlist)
+    if (hls && hls.subtitleTracks.length > 0) {
+      hls.subtitleTrack = newEnabled ? 0 : -1;
+      hls.subtitleDisplay = newEnabled;
+    }
+
+    // Also toggle native text tracks
+    const tracks = video.textTracks;
     for (let i = 0; i < tracks.length; i++) {
       tracks[i].mode = newEnabled ? "showing" : "hidden";
     }
@@ -762,14 +785,29 @@ export function VideoPlayer({
     (quality: Quality) => {
       const video = videoRef.current;
       if (!video) return;
+      const hls = hlsRef.current;
 
+      // If using master playlist, switch level via HLS.js (no rebuild needed)
+      if (hls && getMasterUrl(streamLinks)) {
+        const targetHeight = Number(quality);
+        const levelIndex = hls.levels.findIndex((l) => l.height === targetHeight);
+        if (levelIndex >= 0) {
+          hls.currentLevel = levelIndex;
+        } else {
+          hls.currentLevel = -1; // auto
+        }
+        setState((s) => ({ ...s, quality, error: null }));
+        savePreferences({ preferredQuality: quality });
+        showToast(`Quality: ${quality}p`);
+        return;
+      }
+
+      // Fallback: rebuild HLS for per-quality playlists
       const currentTime = video.currentTime;
       const wasPlaying = !video.paused;
 
       setupHlsRef.current(video, quality, currentTime);
 
-      // Resume playback after quality switch
-      const hls = hlsRef.current;
       if (hls) {
         const onParsed = () => {
           if (wasPlaying) video.play();
@@ -782,7 +820,7 @@ export function VideoPlayer({
       savePreferences({ preferredQuality: quality });
       showToast(`Quality: ${quality}p`);
     },
-    [showToast]
+    [showToast, streamLinks]
   );
 
   const changeSpeed = useCallback(

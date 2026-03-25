@@ -11,10 +11,16 @@ function resolveUrl(base: string, value: string): string {
   return `${base}/${value}`;
 }
 
-/**
- * Get full stream URL by looking up the quality in stream_links.
- * Returns null if no link exists for the given quality.
- */
+/** Get master playlist URL if available. */
+export function getMasterUrl(
+  streamLinks: Record<string, string>
+): string | null {
+  const path = streamLinks["master"];
+  if (!path?.trim()) return null;
+  return resolveUrl(CDN_STREAM_BASE, path);
+}
+
+/** Get full stream URL by looking up the quality in stream_links. */
 export function getStreamUrl(
   streamLinks: Record<string, string>,
   quality: Quality

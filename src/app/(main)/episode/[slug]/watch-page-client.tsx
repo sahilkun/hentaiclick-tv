@@ -320,7 +320,7 @@ export function WatchPageClient({
             </div>
 
             {/* ── Description ── */}
-            {episode.meta_description && (
+            {episode.description && (
               <div className="mt-5 pb-5 border-b border-[#54575c]">
                 <h2 className="mb-2 text-sm font-bold text-primary">
                   Description
@@ -331,9 +331,9 @@ export function WatchPageClient({
                     !showFullDescription && "line-clamp-3"
                   )}
                 >
-                  {episode.meta_description}
+                  {episode.description}
                 </p>
-                {episode.meta_description.length > 200 && (
+                {episode.description.length > 200 && (
                   <button
                     type="button"
                     className="mt-2 text-xs font-medium text-primary hover:underline"

@@ -348,17 +348,29 @@ export async function getGenres() {
 
 /** Featured genre slugs shown in the Categories section on the homepage */
 const FEATURED_GENRE_SLUGS = [
-  "uncensored",
-  "milf",
-  "maid",
-  "school-girl",
-  "succubus",
-  "tentacle",
   "big-boobs",
-  "bdsm",
-  "elf",
-  "4k-48fps",
+  "creampie",
+  "rape",
+  "public-sex",
+  "4k",
+  "x-ray",
+  "gangbang",
+  "blow-job",
+  "vanilla",
+  "uncensored",
 ];
+
+
+
+
+
+
+
+
+
+
+
+
 
 export interface GenreWithPosters {
   id: string;

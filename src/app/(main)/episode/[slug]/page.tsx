@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     `Watch ${episode.title} in HD quality on ${SITE_NAME}.`;
 
   return {
-    title: `${episode.title}${episode.series ? ` — ${episode.series.title}` : ""}`,
+    title: episode.meta_title ?? `${episode.title}${episode.series ? ` — ${episode.series.title}` : ""}`,
     description: desc,
     openGraph: {
       title: episode.title,
