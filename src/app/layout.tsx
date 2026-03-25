@@ -56,14 +56,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://cdn.rootserver1.com" />
-        <link rel="preconnect" href="https://cdn.rootserver2.com" />
-        <link rel="dns-prefetch" href="https://c6149z6464.r-cdn.com" />
-        <link rel="dns-prefetch" href="https://c6149z6465.r-cdn.com" />
+        
+        
         {process.env.NEXT_PUBLIC_SUPABASE_URL && (
           <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
         )}
-        <Script src="https://www.googletagmanager.com/gtag/js?id=G-J245QRXDYG" strategy="beforeInteractive" />
-        <Script id="google-analytics" strategy="beforeInteractive">
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-J245QRXDYG" strategy="afterInteractive" />
+        <Script id="google-analytics" strategy="afterInteractive">
           {"window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-J245QRXDYG');"}
         </Script>
       </head>
