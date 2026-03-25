@@ -17,6 +17,9 @@ import {
   ChevronDown,
   ChevronUp,
   TriangleAlert,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { EpisodeList } from "@/components/episode/episode-list";
@@ -90,6 +93,7 @@ export function WatchPageClient({
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showAllGallery, setShowAllGallery] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [userRating, setUserRating] = useState<number | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [showPoster, setShowPoster] = useState(true);
@@ -157,6 +161,18 @@ export function WatchPageClient({
   const visibleGallery = showAllGallery
     ? galleryImages
     : galleryImages.slice(0, GALLERY_PREVIEW);
+
+  // Lightbox keyboard navigation
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowRight" && lightboxIndex < galleryImages.length - 1) setLightboxIndex(lightboxIndex + 1);
+      if (e.key === "ArrowLeft" && lightboxIndex > 0) setLightboxIndex(lightboxIndex - 1);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [lightboxIndex, galleryImages.length]);
 
   return (
     <div>
@@ -443,6 +459,60 @@ export function WatchPageClient({
             </h2>
             <RatingPicker episodeId={episode.id} initialRating={userRating} />
           </div>
+
+          {/* ── Lightbox ── */}
+          {lightboxIndex !== null && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+              onClick={() => setLightboxIndex(null)}
+            >
+              {/* Close button */}
+              <button
+                type="button"
+                className="absolute right-4 top-4 z-50 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+                onClick={() => setLightboxIndex(null)}
+              >
+                <X className="h-6 w-6" />
+              </button>
+
+              {/* Previous */}
+              {lightboxIndex > 0 && (
+                <button
+                  type="button"
+                  className="absolute left-4 z-50 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex - 1); }}
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+              )}
+
+              {/* Next */}
+              {lightboxIndex < galleryImages.length - 1 && (
+                <button
+                  type="button"
+                  className="absolute right-4 z-50 rounded-full bg-black/60 p-2 text-white hover:bg-black/80"
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(lightboxIndex + 1); }}
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              )}
+
+              {/* Image */}
+              <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+                <Image
+                  src={galleryImages[lightboxIndex]}
+                  alt="Gallery image"
+                  width={1920}
+                  height={1080}
+                  className="max-h-[90vh] w-auto rounded-lg object-contain"
+                  priority
+                />
+                <div className="mt-2 text-center text-sm text-white/60">
+                  {lightboxIndex + 1} / {galleryImages.length}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── Comments ── */}
           <div className="rounded-lg bg-[rgba(38,38,38)] p-5">

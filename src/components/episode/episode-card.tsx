@@ -29,6 +29,8 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
   const hasGallery =
     episode.gallery_urls && episode.gallery_urls.length > 0;
 
+  const cardRef = useRef<HTMLAnchorElement>(null);
+
   const startGallery = useCallback(() => {
     if (!hasGallery || isPoster) return;
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -48,6 +50,29 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
       intervalRef.current = undefined;
     }
   }, []);
+
+  // Auto-cycle gallery on mobile when card is visible in viewport
+  useEffect(() => {
+    if (!hasGallery || isPoster) return;
+    const isMobile = typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
+    if (!isMobile) return;
+
+    const el = cardRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          startGallery();
+        } else {
+          stopGallery();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasGallery, isPoster, startGallery, stopGallery]);
 
   useEffect(() => {
     return () => {
@@ -73,6 +98,7 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
         "group block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-lg",
         className
       )}
+      ref={cardRef}
       onMouseEnter={startGallery}
       onMouseLeave={stopGallery}
     >
