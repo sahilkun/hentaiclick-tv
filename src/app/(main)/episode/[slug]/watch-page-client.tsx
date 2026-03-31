@@ -300,7 +300,7 @@ export function WatchPageClient({
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -402,12 +402,11 @@ export function WatchPageClient({
               </h2>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
                 {visibleGallery.map((url, i) => (
-                  <a
+                  <button
                     key={i}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group/img relative aspect-video overflow-hidden rounded-lg"
+                    type="button"
+                    onClick={() => setLightboxIndex(i)}
+                    className="group/img relative aspect-video overflow-hidden rounded-lg cursor-pointer"
                   >
                     <Image
                       src={url}
@@ -416,7 +415,7 @@ export function WatchPageClient({
                       sizes="(max-width: 640px) 50vw, 20vw"
                       className="object-cover transition-transform duration-200 group-hover/img:scale-105"
                     />
-                  </a>
+                  </button>
                 ))}
               </div>
               {galleryImages.length > GALLERY_PREVIEW && (

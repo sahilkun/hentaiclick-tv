@@ -29,7 +29,7 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
   const hasGallery =
     episode.gallery_urls && episode.gallery_urls.length > 0;
 
-  const cardRef = useRef<HTMLAnchorElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const startGallery = useCallback(() => {
     if (!hasGallery || isPoster) return;
@@ -51,28 +51,40 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
     }
   }, []);
 
-  // Auto-cycle gallery on mobile when card is visible in viewport
+  // Mobile: auto-cycle gallery when card scrolls into view
   useEffect(() => {
     if (!hasGallery || isPoster) return;
-    const isMobile = typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
-    if (!isMobile) return;
+    if (typeof window === "undefined") return;
+    if (!('ontouchstart' in window)) return;
 
     const el = cardRef.current;
     if (!el) return;
 
+    let interval: ReturnType<typeof setInterval> | undefined;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          startGallery();
+          setHovering(true);
+          setGalleryIndex(0);
+          interval = setInterval(() => {
+            setGalleryIndex((prev) =>
+              prev + 1 >= (episode.gallery_urls?.length ?? 0) ? 0 : prev + 1
+            );
+          }, 1500);
         } else {
-          stopGallery();
+          setHovering(false);
+          if (interval) { clearInterval(interval); interval = undefined; }
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.3 }
     );
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasGallery, isPoster, startGallery, stopGallery]);
+    return () => {
+      observer.disconnect();
+      if (interval) clearInterval(interval);
+    };
+  }, [hasGallery, isPoster, episode.gallery_urls?.length]);
 
   useEffect(() => {
     return () => {
@@ -91,6 +103,7 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
       : episode.thumbnail_url;
 
   return (
+    <div ref={cardRef}>
     <Link
       href={`/episode/${episode.slug}`}
       prefetch={false}
@@ -98,7 +111,6 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
         "group block overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-lg",
         className
       )}
-      ref={cardRef}
       onMouseEnter={startGallery}
       onMouseLeave={stopGallery}
     >
@@ -204,6 +216,7 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
         )}
       </div>
     </Link>
+    </div>
   );
 });
 

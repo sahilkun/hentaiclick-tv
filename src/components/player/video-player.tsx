@@ -598,59 +598,63 @@ export function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
 
-    const repositionCues = (track: TextTrack) => {
-      if (!track.cues) return;
-      for (let j = 0; j < track.cues.length; j++) {
-        const cue = track.cues[j] as VTTCue;
-        // Move cues up - line -4 means 4 lines from bottom
-        cue.line = -4;
-        cue.snapToLines = true;
-      }
+    const MIN_LINE = -3; // floor - short text sits here
+    const CHARS_PER_LINE = 45; // approximate chars before wrap
+
+    const getLinePos = (text: string) => {
+      // Count how many visual lines this text will take
+      const cleanText = text.replace(/<[^>]*>/g, ""); // strip HTML tags
+      const lines = Math.max(1, Math.ceil(cleanText.length / CHARS_PER_LINE));
+      // Push up by extra lines so bottom never goes below MIN_LINE
+      return MIN_LINE - (lines - 1);
     };
 
-    const onCueChange = (e: Event) => {
-      const track = e.target as TextTrack;
-      if (track.activeCues) {
-        for (let j = 0; j < track.activeCues.length; j++) {
-          const cue = track.activeCues[j] as VTTCue;
-          cue.line = -4;
-          cue.snapToLines = true;
+    const repositionAllCues = () => {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        const track = video.textTracks[i];
+        if (!track.cues) continue;
+        for (let j = 0; j < track.cues.length; j++) {
+          const cue = track.cues[j] as VTTCue;
+          const targetLine = getLinePos(cue.text);
+          if (cue.line !== targetLine) {
+            cue.line = targetLine;
+            cue.snapToLines = true;
+          }
         }
       }
     };
+
+    // Reposition on every cue change
+    const onCueChange = () => repositionAllCues();
 
     const onAddTrack = (e: TrackEvent) => {
       const track = e.track;
       if (!track) return;
-      // Wait for cues to load
+      track.addEventListener("cuechange", onCueChange);
+      // Poll for cues to load (HLS segments arrive async)
       const interval = setInterval(() => {
         if (track.cues && track.cues.length > 0) {
-          clearInterval(interval);
-          repositionCues(track);
+          repositionAllCues();
         }
-      }, 100);
-      setTimeout(() => clearInterval(interval), 5000);
-      track.addEventListener("cuechange", onCueChange);
+      }, 200);
+      setTimeout(() => clearInterval(interval), 10000);
     };
 
     // Handle existing tracks
     for (let i = 0; i < video.textTracks.length; i++) {
-      const track = video.textTracks[i];
-      repositionCues(track);
-      track.addEventListener("cuechange", onCueChange);
+      video.textTracks[i].addEventListener("cuechange", onCueChange);
     }
-
     video.textTracks.addEventListener("addtrack", onAddTrack as EventListener);
 
-    // Also observe DOM for new track elements
-    const observer = new MutationObserver(() => {
-      for (let i = 0; i < video.textTracks.length; i++) {
-        repositionCues(video.textTracks[i]);
-      }
-    });
+    // Periodically reposition all cues (catches new HLS segment cues)
+    const poller = setInterval(repositionAllCues, 500);
+
+    // Also reposition on DOM changes
+    const observer = new MutationObserver(repositionAllCues);
     observer.observe(video, { childList: true });
 
     return () => {
+      clearInterval(poller);
       observer.disconnect();
       video.textTracks.removeEventListener("addtrack", onAddTrack as EventListener);
       for (let i = 0; i < video.textTracks.length; i++) {
