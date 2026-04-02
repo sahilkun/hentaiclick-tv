@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Play,
   Pause,
@@ -67,6 +67,7 @@ export function PlayerControls({
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState<number | null>(null);
   const [dragX, setDragX] = useState(0);
+  const [pendingSeekTime, setPendingSeekTime] = useState<number | null>(null);
   const seekBarRef = useRef<HTMLDivElement>(null);
 
   const getTimeFromX = useCallback(
@@ -123,6 +124,7 @@ export function PlayerControls({
         const t = getTimeFromX(ev.clientX);
         onSeek(t);
         setIsDragging(false); onDraggingChange?.(false);
+        setPendingSeekTime(t);
         setDragTime(null);
         setHoverTime(null);
         window.removeEventListener("mousemove", onMouseMove);
@@ -165,10 +167,20 @@ export function PlayerControls({
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false); onDraggingChange?.(false);
+    setPendingSeekTime(dragTime);
     setDragTime(null);
-  }, []);
+  }, [dragTime]);
 
   // Preview: show thumbnail during hover OR drag
+  // Clear pending seek when video catches up
+  const prevCurrentTimeRef = useRef(state.currentTime);
+  if (pendingSeekTime !== null && Math.abs(state.currentTime - pendingSeekTime) < 1) {
+    if (state.currentTime !== prevCurrentTimeRef.current) {
+      setPendingSeekTime(null);
+    }
+  }
+  prevCurrentTimeRef.current = state.currentTime;
+
   const previewTime = isDragging ? dragTime : hoverTime;
   const previewX = isDragging ? dragX : hoverX;
   const showPreview = previewTime !== null;
@@ -179,12 +191,12 @@ export function PlayerControls({
       : null;
 
   // Progress bar position follows drag if dragging
-  const progress =
-    state.duration > 0
-      ? isDragging && dragTime !== null
-        ? (dragTime / state.duration) * 100
-        : (state.currentTime / state.duration) * 100
-      : 0;
+  const displayTime = isDragging && dragTime !== null
+    ? dragTime
+    : pendingSeekTime !== null
+      ? pendingSeekTime
+      : state.currentTime;
+  const progress = state.duration > 0 ? (displayTime / state.duration) * 100 : 0;
   const bufferedProgress =
     state.duration > 0 ? (state.buffered / state.duration) * 100 : 0;
 
@@ -286,7 +298,7 @@ export function PlayerControls({
 
         {/* Time - shows drag time while dragging */}
         <span className="text-xs text-white/80">
-          {formatDuration(isDragging && dragTime !== null ? dragTime : state.currentTime)} / {formatDuration(state.duration)}
+          {formatDuration(displayTime)} / {formatDuration(state.duration)}
         </span>
 
         <div className="flex-1" />

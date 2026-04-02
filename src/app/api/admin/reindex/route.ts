@@ -32,9 +32,9 @@ export async function POST() {
 
   // Rate limit: max once per 5 minutes
   const now = Date.now();
-  if (now - lastReindexTime < 5 * 60_000) {
+  if (now - lastReindexTime < 1 * 60_000) {
     return NextResponse.json(
-      { error: "Reindex in progress or was run recently. Try again in 5 minutes." },
+      { error: "Reindex in progress or was run recently. Try again in 1 minute." },
       { status: 429 }
     );
   }

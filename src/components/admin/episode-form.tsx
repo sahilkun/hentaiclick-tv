@@ -452,6 +452,34 @@ export function EpisodeForm({
           </div>
         </div>
 
+        {/* Master playlist (for multi-audio/ABR) */}
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+          <label className="mb-1 block text-xs font-bold text-primary">
+            Master Playlist (optional — enables audio switching)
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {CDN_STREAM_BASE}/
+            </span>
+            <Input
+              value={form.stream_links["master"] ?? ""}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  stream_links: {
+                    ...form.stream_links,
+                    master: e.target.value,
+                  },
+                })
+              }
+              placeholder="path/master.m3u8"
+            />
+          </div>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            ABR master playlist with audio groups. If set, player uses this instead of individual quality streams.
+          </p>
+        </div>
+
         {/* Per-quality link groups */}
         {QUALITY_LEVELS.filter((q) => q !== 480).map((q) => (
           <div
