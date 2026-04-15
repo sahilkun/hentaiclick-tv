@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { safeJsonLd } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     `Watch ${episode.title} in HD quality on ${SITE_NAME}.`;
 
   return {
-    title: episode.meta_title ?? `${episode.title}${episode.series ? ` — ${episode.series.title}` : ""}`,
+    title: episode.meta_title ?? `Watch ${episode.title}${episode.series ? ` (${episode.series.title})` : ""} in 4K HD`,
     description: desc,
     openGraph: {
       title: episode.title,
@@ -149,12 +150,17 @@ export default async function EpisodeWatchPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }}
       />
-      <WatchPageClient
-        episode={episode}
-        seriesEpisodes={seriesEpisodes}
-        studioEpisodes={studioEpisodes}
-        popularWeekly={popularWeekly}
-      />
+      <h1 className="sr-only">
+        {`${episode.title}${episode.series ? ` (${episode.series.title})` : ""} - Watch in 4K HD on ${SITE_NAME}`}
+      </h1>
+      <Suspense fallback={null}>
+        <WatchPageClient
+          episode={episode}
+          seriesEpisodes={seriesEpisodes}
+          studioEpisodes={studioEpisodes}
+          popularWeekly={popularWeekly}
+        />
+      </Suspense>
     </>
   );
 }

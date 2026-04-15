@@ -239,9 +239,9 @@ export function WatchPageClient({
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-bold text-primary sm:text-2xl">
+                <h2 className="text-xl font-bold text-primary sm:text-2xl">
                   {episode.title}
-                </h1>
+                </h2>
                 {episode.regional_name && (
                   <p className="text-sm text-muted-foreground">{episode.regional_name}</p>
                 )}
