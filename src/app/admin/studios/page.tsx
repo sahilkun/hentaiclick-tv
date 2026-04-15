@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Modal, ModalHeader, ModalTitle, ModalBody, ModalFooter } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import slugify from "slugify";
+import { slugify } from "@/lib/slugify";
 
 interface Studio {
   id: string;
@@ -68,7 +68,7 @@ export default function AdminStudiosPage() {
     const supabase = createClient();
     const payload = {
       name: form.name,
-      slug: form.slug || slugify(form.name, { lower: true, strict: true }),
+      slug: form.slug || slugify(form.name),
       logo_url: form.logo_url || null,
       description: form.description || null,
     };

@@ -13,7 +13,7 @@ import {
   ModalFooter,
 } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import slugify from "slugify";
+import { slugify } from "@/lib/slugify";
 
 interface SitePage {
   id: string;
@@ -55,7 +55,7 @@ export default function AdminPagesPage() {
       .from("site_pages")
       .insert({
         title: newTitle,
-        slug: newSlug || slugify(newTitle, { lower: true, strict: true }),
+        slug: newSlug || slugify(newTitle),
         content: "",
       })
       .select("id")

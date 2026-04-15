@@ -13,7 +13,7 @@ import {
   ModalFooter,
 } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
-import slugify from "slugify";
+import { slugify } from "@/lib/slugify";
 
 interface Genre {
   id: string;
@@ -76,7 +76,7 @@ export default function AdminGenresPage() {
     const supabase = createClient();
     const payload = {
       name: form.name,
-      slug: form.slug || slugify(form.name, { lower: true, strict: true }),
+      slug: form.slug || slugify(form.name),
       is_subgenre: form.is_subgenre,
       parent_genre_id: form.parent_genre_id || null,
     };

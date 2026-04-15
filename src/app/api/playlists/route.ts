@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import slugify from "slugify";
+import { slugify } from "@/lib/slugify";
 import { isValidUUID, validateOrigin, stripHtmlTags, parseJsonBody, isParseError } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const baseSlug = slugify(title, { lower: true, strict: true });
+  const baseSlug = slugify(title);
   const suffix = user.id.slice(0, 8);
   const slug = `${baseSlug}-${suffix}`;
 

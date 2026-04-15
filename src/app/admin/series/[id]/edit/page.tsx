@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import slugify from "slugify";
+import { slugify } from "@/lib/slugify";
 
 export default function EditSeriesPage({
   params,
@@ -63,7 +63,7 @@ export default function EditSeriesPage({
       .from("series")
       .update({
         ...form,
-        slug: form.slug || slugify(form.title, { lower: true, strict: true }),
+        slug: form.slug || slugify(form.title),
         cover_url: form.cover_url || null,
       })
       .eq("id", id);

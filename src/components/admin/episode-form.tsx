@@ -15,7 +15,7 @@ import {
   CDN_DOWNLOAD_BASE,
 } from "@/lib/constants";
 import type { Episode } from "@/types";
-import slugify from "slugify";
+import { slugify } from "@/lib/slugify";
 
 interface GenreOption {
   id: string;
@@ -112,7 +112,7 @@ export function EpisodeForm({
       title,
       slug: isEdit
         ? form.slug
-        : slugify(title, { lower: true, strict: true }),
+        : slugify(title),
     });
   };
 

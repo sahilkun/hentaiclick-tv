@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import slugify from "slugify";
+import { slugify } from "@/lib/slugify";
 
 export default function NewSeriesPage() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function NewSeriesPage() {
     const supabase = createClient();
     const { error } = await supabase.from("series").insert({
       ...form,
-      slug: form.slug || slugify(form.title, { lower: true, strict: true }),
+      slug: form.slug || slugify(form.title),
       cover_url: form.cover_url || null,
     });
 
