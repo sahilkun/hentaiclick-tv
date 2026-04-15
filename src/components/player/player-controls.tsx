@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/utils";
 import { QUALITY_LABELS, PLAYBACK_SPEEDS, type Quality } from "@/lib/constants";
 import type { PlayerState } from "@/types/player";
-import type { ThumbCue } from "./video-player";
+import type { ThumbCue } from "@/lib/player/vtt";
 
 interface PlayerControlsProps {
   state: PlayerState;
