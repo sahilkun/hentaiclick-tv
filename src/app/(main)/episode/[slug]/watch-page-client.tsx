@@ -201,25 +201,34 @@ export function WatchPageClient({
                 } catch {}
               }}
             />
-            {/* Poster overlay — visible until first play */}
-            {showPoster && (episode.thumbnail_url || episode.poster_url) && (
-              <>
+            {/* Poster overlay — visible until first play. Full-area clickable tap target. */}
+            {showPoster && (episode.gallery_urls?.[0] || episode.thumbnail_url || episode.poster_url) && (
+              <button
+                type="button"
+                aria-label="Play video"
+                onClick={(e) => {
+                  const container = e.currentTarget.parentElement;
+                  const video = container?.querySelector("video");
+                  if (video) {
+                    video.play().catch(() => {});
+                  }
+                }}
+                className="absolute inset-0 flex items-center justify-center cursor-pointer"
+              >
                 <Image
-                  src={episode.thumbnail_url || episode.poster_url || ""}
+                  src={episode.gallery_urls?.[0] || episode.thumbnail_url || episode.poster_url || ""}
                   alt=""
                   fill
                   priority
                   sizes="100vw"
                   className="object-cover pointer-events-none"
                 />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
-                    <svg viewBox="0 0 24 24" className="ml-1 h-8 w-8 fill-white">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">
+                  <svg viewBox="0 0 24 24" className="ml-1 h-10 w-10 fill-white">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
                 </div>
-              </>
+              </button>
             )}
           </div>
 

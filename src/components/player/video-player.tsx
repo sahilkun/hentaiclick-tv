@@ -801,7 +801,7 @@ export function VideoPlayer({
 
       {/* Loading spinner */}
       {state.loading && !state.error && (
-        <div className="absolute inset-0 flex items-center justify-center pb-12">
+        <div className="absolute inset-0 flex items-center justify-center pb-12 pointer-events-none">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/30 border-t-white" />
         </div>
       )}
