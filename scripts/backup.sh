@@ -47,5 +47,9 @@ find "$BACKUP_DIR" -name "db_*.sql.gz" -not -name "*.gpg" -delete
 find "$BACKUP_DIR" -name "meilisearch_*.tar.gz" -not -name "*.gpg" -delete
 echo "[$DATE] Cleaned backups older than $RETENTION_DAYS days + unencrypted leftovers"
 
+# Prune old download_events rows (>7 days old) to keep the table small
+PRUNED=$(docker exec supabase-db psql -U supabase_admin -d postgres -tAc "WITH d AS (DELETE FROM download_events WHERE created_at < now() - interval '7 days' RETURNING 1) SELECT COUNT(*) FROM d" 2>/dev/null | tr -d '[:space:]')
+echo "[$DATE] Pruned ${PRUNED:-0} old download_events rows"
+
 echo "[$DATE] Backup complete."
 # To decrypt: gpg --batch --passphrase-file /root/.backup_passphrase -d backup.sql.gz.gpg > backup.sql.gz
