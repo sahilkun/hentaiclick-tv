@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CDN_DOWNLOAD_BASE, CDN_STREAM_BASE } from "@/lib/constants";
 import { sanitizeFilename } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { createClient } from "@/lib/supabase/server";
 
 /** Build CDN allowlist from environment-configured bases. */
 function getAllowedCdnBases(): string[] {
@@ -52,8 +53,17 @@ export async function GET(request: NextRequest) {
   const pathParam = request.nextUrl.searchParams.get("path");
   const turnstileToken = request.nextUrl.searchParams.get("token");
 
-  // Verify Turnstile token if provided (guest downloads)
-  if (turnstileToken) {
+  // Check authentication. Authenticated users skip captcha; guests must provide a valid token.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    if (!turnstileToken) {
+      return NextResponse.json(
+        { error: "Captcha verification required for guest downloads" },
+        { status: 403 }
+      );
+    }
     const valid = await verifyTurnstile(turnstileToken);
     if (!valid) {
       return NextResponse.json(

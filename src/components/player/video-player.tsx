@@ -593,11 +593,20 @@ export function VideoPlayer({
     } else {
       clickTimerRef.current = setTimeout(() => {
         clickTimerRef.current = undefined;
-        togglePlay();
+        const video = videoRef.current;
+        // Desktop: always toggle play/pause
+        // Mobile: if paused, play it; if playing, just show controls
+        if (!isTouchRef.current) {
+          togglePlay();
+        } else if (video?.paused) {
+          togglePlay();
+        } else {
+          resetHideTimer();
+        }
         isTouchRef.current = false;
       }, 250);
     }
-  }, [togglePlay, toggleFullscreen, showToast]);
+  }, [togglePlay, toggleFullscreen, showToast, resetHideTimer]);
 
   const seek = useCallback((time: number) => {
     const video = videoRef.current;
@@ -822,11 +831,12 @@ export function VideoPlayer({
         </div>
       )}
 
-      {/* Play button overlay */}
+      {/* Play button overlay - routes through handleVideoClick for desktop double-click=fullscreen */}
       {!state.playing && !state.loading && !state.error && (
         <button
           type="button"
-          onClick={togglePlay}
+          onClick={(e) => handleVideoClick(e as unknown as React.MouseEvent<HTMLVideoElement>)}
+          onTouchStart={handleTouchStartOnVideo}
           className="absolute inset-0 flex items-center justify-center pb-12"
         >
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/30">

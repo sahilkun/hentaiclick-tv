@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Download, Lock } from "lucide-react";
 import { Modal, ModalHeader, ModalTitle, ModalClose, ModalBody } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Turnstile } from "@/components/ui/turnstile";
 import { getDownloadableQualities, needsTurnstile } from "@/lib/access";
 import { deriveDownloadQualities, getDownloadUrl } from "@/lib/cdn";
 import { QUALITY_LABELS, type Quality } from "@/lib/constants";
@@ -11,11 +12,15 @@ import type { UserContext, EpisodeWithRelations } from "@/types";
 
 function getProxyDownloadUrl(
   downloadLinks: Record<string, string>,
-  quality: Quality
+  quality: Quality,
+  turnstileToken?: string
 ): string | null {
   const fullUrl = getDownloadUrl(downloadLinks, quality);
   if (!fullUrl) return null;
-  return `/api/download?url=${encodeURIComponent(fullUrl)}`;
+  const params = new URLSearchParams();
+  params.set("url", fullUrl);
+  if (turnstileToken) params.set("token", turnstileToken);
+  return `/api/download?${params.toString()}`;
 }
 
 interface DownloadModalProps {
@@ -31,7 +36,7 @@ export function DownloadModal({
   episode,
   userContext,
 }: DownloadModalProps) {
-  const [turnstileVerified, setTurnstileVerified] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const availableDownloadQualities = deriveDownloadQualities(episode.download_links);
   const downloadQualities = getDownloadableQualities(
@@ -41,6 +46,7 @@ export function DownloadModal({
   );
 
   const showTurnstile = needsTurnstile(userContext);
+  const turnstileVerified = !showTurnstile || !!turnstileToken;
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -75,12 +81,16 @@ export function DownloadModal({
                 <Button size="sm" variant="outline" disabled>
                   Locked
                 </Button>
-              ) : showTurnstile && !turnstileVerified ? (
+              ) : !turnstileVerified ? (
                 <div className="text-xs text-muted-foreground">
                   Verify captcha below
                 </div>
               ) : (() => {
-                const url = getProxyDownloadUrl(episode.download_links, quality);
+                const url = getProxyDownloadUrl(
+                  episode.download_links,
+                  quality,
+                  turnstileToken ?? undefined
+                );
                 return url ? (
                   <a href={url}>
                     <Button size="sm">Download</Button>
@@ -94,15 +104,18 @@ export function DownloadModal({
             </div>
           ))}
 
-          {/* Turnstile widget placeholder for guests */}
-          {showTurnstile && !turnstileVerified && (
+          {/* Turnstile widget for guests */}
+          {showTurnstile && !turnstileToken && (
             <div className="mt-4 rounded-lg border border-border p-4 text-center">
-              <p className="mb-2 text-sm text-muted-foreground">
+              <p className="mb-3 text-sm text-muted-foreground">
                 Complete the captcha to download
               </p>
-              {/* Cloudflare Turnstile widget will be embedded here */}
-              <div className="mx-auto h-[65px] w-[300px] rounded bg-muted" />
-              <p className="mt-2 text-xs text-muted-foreground">
+              <Turnstile
+                onVerify={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => setTurnstileToken(null)}
+              />
+              <p className="mt-3 text-xs text-muted-foreground">
                 <a href="/login" className="text-primary hover:underline">
                   Log in
                 </a>{" "}

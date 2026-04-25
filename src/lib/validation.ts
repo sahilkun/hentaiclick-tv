@@ -107,15 +107,19 @@ export function stripHtmlTags(input: string): string {
 const ALLOWED_CDN_HOSTS = new Set([
   "cdn.rootserver1.com",
   "cdn.rootserver2.com",
-  "c6149z6464.r-cdn.com",
-  "c6149z6465.r-cdn.com",
 ]);
 
-/** Validate a URL uses https and points to an allowed CDN hostname. */
+/** Validate a URL uses https and points to an allowed CDN hostname.
+ * Accepts the explicit allowlist above plus any *.r-cdn.com subdomain
+ * (R2-compatible buckets change hostname when recreated). */
 export function isAllowedCdnUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" && ALLOWED_CDN_HOSTS.has(parsed.hostname);
+    if (parsed.protocol !== "https:") return false;
+    if (ALLOWED_CDN_HOSTS.has(parsed.hostname)) return true;
+    // Allow any subdomain of r-cdn.com (e.g. c6149z6672.r-cdn.com)
+    if (parsed.hostname.endsWith(".r-cdn.com")) return true;
+    return false;
   } catch {
     return false;
   }
