@@ -138,6 +138,11 @@ export function Header() {
           </div>
         </div>
       </div>
+
+      {/* Mobile-only search bar (hidden on lg+ where it's inline above) */}
+      <div className="border-t border-border/40 px-4 py-2 lg:hidden">
+        <SearchBar className="w-full" />
+      </div>
     </header>
   );
 }
