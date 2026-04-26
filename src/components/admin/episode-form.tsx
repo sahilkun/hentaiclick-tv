@@ -74,9 +74,16 @@ export function EpisodeForm({
     meta_description: episode?.meta_description ?? "",
   });
 
-  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(
-    initialGenreIds
-  );
+  // For new episodes, auto-include the "AI Decensored" genre by default.
+  // For edits, preserve whatever was already saved.
+  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>(() => {
+    if (isEdit) return initialGenreIds;
+    const aiDecensored = genres.find((g) => g.slug === "ai-decensored");
+    if (aiDecensored && !initialGenreIds.includes(aiDecensored.id)) {
+      return [...initialGenreIds, aiDecensored.id];
+    }
+    return initialGenreIds;
+  });
   const [genreSearch, setGenreSearch] = useState("");
   const [saving, setSaving] = useState(false);
 
