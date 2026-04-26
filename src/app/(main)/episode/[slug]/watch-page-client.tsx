@@ -265,16 +265,22 @@ export function WatchPageClient({
 
                 {/* Dates & Studio row */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1" title="Uploaded">
                     <Upload className="h-3.5 w-3.5" />
+                    <span className="font-medium text-foreground/80">Uploaded:</span>{" "}
                     {formatDistanceToNow(new Date(episode.upload_date), {
                       addSuffix: true,
                     })}
                   </span>
                   {episode.release_date && (
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1" title="Released">
                       <Calendar className="h-3.5 w-3.5" />
-                      {new Date(episode.release_date).toLocaleDateString("en-US")}
+                      <span className="font-medium text-foreground/80">Released:</span>{" "}
+                      {new Date(episode.release_date).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </span>
                   )}
                   {studioName && (
