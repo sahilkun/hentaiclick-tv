@@ -268,9 +268,19 @@ export function WatchPageClient({
                   <span className="flex items-center gap-1" title="Uploaded">
                     <Upload className="h-3.5 w-3.5" />
                     <span className="font-medium text-foreground/80">Uploaded:</span>{" "}
-                    {formatDistanceToNow(new Date(episode.upload_date), {
-                      addSuffix: true,
-                    })}
+                    {(() => {
+                      const uploaded = new Date(episode.upload_date);
+                      const ageMs = Date.now() - uploaded.getTime();
+                      // Within 24h → relative; otherwise → absolute date
+                      if (ageMs < 24 * 60 * 60 * 1000) {
+                        return formatDistanceToNow(uploaded, { addSuffix: true });
+                      }
+                      return uploaded.toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      });
+                    })()}
                   </span>
                   {episode.release_date && (
                     <span className="flex items-center gap-1" title="Released">
