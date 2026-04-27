@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
@@ -32,36 +31,38 @@ export default function AdminUsersPage() {
   }, []);
 
   const togglePremium = async (userId: string, currentPremium: boolean) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_premium: !currentPremium })
-      .eq("id", userId);
-
-    if (error) {
-      toast(error.message, "error");
-    } else {
-      toast(
-        `User ${!currentPremium ? "upgraded to" : "removed from"} premium`,
-        "success"
-      );
-      fetchUsers();
+    const res = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ id: userId, is_premium: !currentPremium }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast(data.error ?? "Update failed", "error");
+      return;
     }
+    toast(
+      `User ${!currentPremium ? "upgraded to" : "removed from"} premium`,
+      "success"
+    );
+    fetchUsers();
   };
 
   const changeRole = async (userId: string, newRole: string) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role: newRole })
-      .eq("id", userId);
-
-    if (error) {
-      toast(error.message, "error");
-    } else {
-      toast(`Role updated to ${newRole}`, "success");
-      fetchUsers();
+    const res = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ id: userId, role: newRole }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast(data.error ?? "Update failed", "error");
+      return;
     }
+    toast(`Role updated to ${newRole}`, "success");
+    fetchUsers();
   };
 
   return (
