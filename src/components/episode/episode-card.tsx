@@ -95,12 +95,16 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
   // Build quality badge text (e.g. "4K | FHD")
   const qualityBadge = getQualityBadgeText(deriveStreamQualities(episode.stream_links));
 
-  // Choose image source based on view mode
+  // Choose image source based on view mode.
+  // Poster mode: vertical poster image (cover/thumbnail).
+  // Thumbnail mode: prefer 16:9 gallery image (~1920x1080) so it stays sharp on
+  // landscape cards. Cover/thumbnail_url is often a small portrait (~268x394)
+  // which would look stretched/blurry when cropped to 16:9.
   const imageSrc = isPoster
     ? episode.poster_url || episode.thumbnail_url
     : hovering && hasGallery
       ? episode.gallery_urls[galleryIndex]
-      : episode.thumbnail_url;
+      : (hasGallery ? episode.gallery_urls[0] : episode.thumbnail_url);
 
   return (
     <div ref={cardRef}>
@@ -124,7 +128,7 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
             src={imageSrc}
             alt={episode.title}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes="(max-width: 640px) 90vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 320px"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             priority={priority}
           />
