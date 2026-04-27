@@ -9,18 +9,21 @@ import type { Profile } from "@/types";
 
 export default function AdminUsersPage() {
   const { toast } = useToast();
-  const [users, setUsers] = useState<Profile[]>([]);
+  const [users, setUsers] = useState<(Profile & { email: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchUsers = async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    setUsers((data ?? []) as unknown as Profile[]);
+    try {
+      const res = await fetch("/api/admin/users", { credentials: "include" });
+      if (res.ok) {
+        const json = await res.json();
+        setUsers(json.users ?? []);
+      } else {
+        setUsers([]);
+      }
+    } catch {
+      setUsers([]);
+    }
     setLoading(false);
   };
 
@@ -73,6 +76,7 @@ export default function AdminUsersPage() {
             <thead className="border-b border-border bg-muted/50">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">User</th>
+                <th className="px-4 py-3 text-left font-medium">Email</th>
                 <th className="px-4 py-3 text-left font-medium">Role</th>
                 <th className="px-4 py-3 text-left font-medium">Premium</th>
                 <th className="px-4 py-3 text-left font-medium">Joined</th>
@@ -89,6 +93,9 @@ export default function AdminUsersPage() {
                         @{user.username}
                       </p>
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    <span className="break-all text-xs">{user.email ?? "—"}</span>
                   </td>
                   <td className="px-4 py-3">
                     <select
