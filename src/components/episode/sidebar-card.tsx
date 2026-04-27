@@ -28,19 +28,24 @@ export function SidebarCard({ episode, isCurrent }: SidebarCardProps) {
     >
       {/* Thumbnail */}
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        {episode.thumbnail_url ? (
-          <Image
-            src={episode.thumbnail_url}
-            alt={episode.title}
-            fill
-            sizes="(max-width: 1280px) 50vw, 340px"
-            className="object-cover transition-transform duration-300 group-hover/card:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-xs">
-            No thumbnail
-          </div>
-        )}
+        {(() => {
+          // Prefer 16:9 gallery image (1920x1080) over portrait cover (~268x394)
+          // which would be cropped/upscaled and look blurry on a landscape card.
+          const src = episode.gallery_urls?.[0] || episode.thumbnail_url;
+          return src ? (
+            <Image
+              src={src}
+              alt={episode.title}
+              fill
+              sizes="(max-width: 1280px) 50vw, 340px"
+              className="object-cover transition-transform duration-300 group-hover/card:scale-105"
+            />
+            ) : (
+            <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground text-xs">
+              No thumbnail
+            </div>
+          );
+        })()}
 
         {/* Quality badge */}
         {qualityBadge && (
