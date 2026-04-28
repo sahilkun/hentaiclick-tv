@@ -225,7 +225,7 @@ export function PlayerControls({
                     style={{
                       width: previewThumb.w,
                       height: previewThumb.h,
-                      backgroundImage: `url(${previewThumb.url})`,
+                      backgroundImage: `url("${previewThumb.url}")`,
                       backgroundPosition: `-${previewThumb.x}px -${previewThumb.y}px`,
                       backgroundSize: "auto",
                     }}
