@@ -27,6 +27,8 @@ interface VideoPlayerProps {
   allowedQualities: Quality[];
   onView?: () => void;
   onFirstPlay?: () => void;
+  /** When true, the internal center play overlay is hidden (the parent shows its own poster overlay instead). */
+  hidePlayOverlay?: boolean;
   className?: string;
 }
 
@@ -38,6 +40,7 @@ export function VideoPlayer({
   allowedQualities,
   onView,
   onFirstPlay,
+  hidePlayOverlay,
   className,
 }: VideoPlayerProps) {
   // Stable key for streamLinks to use as useEffect dependency
@@ -832,7 +835,7 @@ export function VideoPlayer({
       )}
 
       {/* Play button overlay - routes through handleVideoClick for desktop double-click=fullscreen */}
-      {!state.playing && !state.loading && !state.error && (
+      {!state.playing && !state.loading && !state.error && !hidePlayOverlay && (
         <button
           type="button"
           onClick={(e) => handleVideoClick(e as unknown as React.MouseEvent<HTMLVideoElement>)}

@@ -190,6 +190,7 @@ export function WatchPageClient({
               thumbnailPath={episode.thumbnail_path}
               availableQualities={streamQualities}
               allowedQualities={allowedQualities}
+              hidePlayOverlay={showPoster}
               onView={handleView}
               onFirstPlay={() => {
                 setShowPoster(false);
