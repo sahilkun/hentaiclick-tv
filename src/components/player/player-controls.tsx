@@ -212,7 +212,7 @@ export function PlayerControls({
           >
             {previewThumb ? (
               <div className="mb-1 overflow-hidden rounded border border-white/20 bg-black">
-                {previewThumb.x === 0 && previewThumb.y === 0 ? (
+                {!previewThumb.isSprite ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={previewThumb.url}

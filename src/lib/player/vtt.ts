@@ -11,6 +11,8 @@ export interface ThumbCue {
   y: number;
   w: number;
   h: number;
+  /** True if this cue references a sprite-sheet cell (had #xywh= in the VTT). */
+  isSprite: boolean;
 }
 
 /**
@@ -61,17 +63,19 @@ export function parseVttThumbs(vttText: string, baseUrl: string): ThumbCue[] {
       y = 0,
       w = 160,
       h = 90;
+    let isSprite = false;
     if (hashIdx !== -1) {
       const path = urlLine.substring(0, hashIdx).trim();
       url = path.startsWith("http") ? path : `${baseUrl}/${path}`;
       const coords = urlLine.substring(hashIdx + 6).split(",").map(Number);
       [x, y, w, h] = coords;
+      isSprite = true;
     } else {
       const path = urlLine.trim();
       url = path.startsWith("http") ? path : `${baseUrl}/${path}`;
     }
 
-    cues.push({ start, end, url, x, y, w, h });
+    cues.push({ start, end, url, x, y, w, h, isSprite });
   }
   return cues;
 }
