@@ -1,32 +1,43 @@
 "use client";
 
 import { useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 export function DevToolsGuard() {
+  const { user } = useAuth();
+
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return;
 
+    // Skip the anti-devtools script for staff so they can debug.
+    if (user?.role === "admin" || user?.role === "moderator") return;
+
+    let cancelled = false;
+
     const init = async () => {
       const DisableDevtool = (await import("disable-devtool")).default;
+      if (cancelled) return;
 
       DisableDevtool({
         ondevtoolopen: () => {
           // Kill media and nuke the page
           try {
-            const m = document.querySelectorAll("video,audio,source");
-            m.forEach((el: any) => {
+            const m = document.querySelectorAll<HTMLMediaElement>(
+              "video,audio,source"
+            );
+            m.forEach((el) => {
               el.pause?.();
               el.removeAttribute("src");
               el.load?.();
             });
-          } catch (e) {}
+          } catch {}
           try {
             document.write("");
             document.close();
-          } catch (e) {}
+          } catch {}
           window.location.replace(window.location.href);
         },
-        disableMenu: false,     // don't block right-click
+        disableMenu: false,
         disableSelect: false,
         disableCopy: false,
         disableCut: false,
@@ -34,13 +45,15 @@ export function DevToolsGuard() {
         clearLog: true,
         interval: 1000,
         detectors: [0, 1, 3, 4, 6, 7],
-        // 0=RegToString, 1=DefineId, 3=DateToString, 4=FuncToString, 6=Performance, 7=DebugLib
-        // Skipped: 2=Size (false positives), 5=Debugger (extension conflicts)
       });
     };
 
     init();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.role]);
 
   return null;
 }
