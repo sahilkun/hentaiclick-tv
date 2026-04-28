@@ -13,7 +13,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("/api/admin/users", { credentials: "include" });
+      const res = await fetch("/api/admin/users", { credentials: "include", cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
         setUsers(json.users ?? []);
@@ -31,22 +31,26 @@ export default function AdminUsersPage() {
   }, []);
 
   const togglePremium = async (userId: string, currentPremium: boolean) => {
+    const newPremium = !currentPremium;
     const res = await fetch("/api/admin/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ id: userId, is_premium: !currentPremium }),
+      body: JSON.stringify({ id: userId, is_premium: newPremium }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       toast(data.error ?? "Update failed", "error");
       return;
     }
+    // Update local state immediately so the UI flips without waiting for refetch
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, is_premium: newPremium } : u))
+    );
     toast(
-      `User ${!currentPremium ? "upgraded to" : "removed from"} premium`,
+      `User ${newPremium ? "upgraded to" : "removed from"} premium`,
       "success"
     );
-    fetchUsers();
   };
 
   const changeRole = async (userId: string, newRole: string) => {
@@ -61,8 +65,12 @@ export default function AdminUsersPage() {
       toast(data.error ?? "Update failed", "error");
       return;
     }
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId ? { ...u, role: newRole as typeof u.role } : u
+      )
+    );
     toast(`Role updated to ${newRole}`, "success");
-    fetchUsers();
   };
 
   return (
