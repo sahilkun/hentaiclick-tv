@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, isAuthError } from "@/lib/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/users
  *
