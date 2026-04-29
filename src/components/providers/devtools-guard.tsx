@@ -3,6 +3,11 @@
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 
+const BOUNCE_KEY = "dt_bounce";
+// If the bounce flag is fresher than this, treat the next page load as
+// a continuation of the loop (no idle-callback defer, fast detection).
+const BOUNCE_WINDOW_MS = 5000;
+
 export function DevToolsGuard() {
   const { user } = useAuth();
 
@@ -12,7 +17,25 @@ export function DevToolsGuard() {
     // Skip the anti-devtools script for staff so they can debug.
     if (user?.role === "admin" || user?.role === "moderator") return;
 
+    // Detect whether we're mid-bounce — i.e., devtools was caught on a prior
+    // page load and we just got redirected here. In that case we want to
+    // re-detect and bounce again as fast as possible so the redirect loop
+    // generates enough requests to trip Cloudflare's 100/10s rate-limit
+    // rule. Without this, the 2s idle defer + 1s detection interval means
+    // the loop only does ~3 bounces per 10s, well under the threshold.
+    let isBouncing = false;
+    try {
+      const ts = parseInt(sessionStorage.getItem(BOUNCE_KEY) || "0", 10);
+      isBouncing = ts > 0 && Date.now() - ts < BOUNCE_WINDOW_MS;
+    } catch {}
+
     let cancelled = false;
+    // Once-per-page-lifecycle bounce guard. disable-devtool's
+    // `ondevtoolopen` callback fires every detection tick while devtools
+    // stays open; without this guard, mid-flight navigation gets
+    // cancelled by the next tick's `replace()` call and the user never
+    // sees Cloudflare's rate-limit error page.
+    let bounced = false;
     let scheduleId: ReturnType<typeof setTimeout> | number | undefined;
 
     const init = async () => {
@@ -21,7 +44,9 @@ export function DevToolsGuard() {
 
       DisableDevtool({
         ondevtoolopen: () => {
-          // Kill media and nuke the page
+          if (bounced) return;
+          bounced = true;
+          // Kill media
           try {
             const m = document.querySelectorAll<HTMLMediaElement>(
               "video,audio,source"
@@ -32,11 +57,58 @@ export function DevToolsGuard() {
               el.load?.();
             });
           } catch {}
+          // Stamp the bounce flag BEFORE document.write — once we wipe
+          // the document the storage handle on some browsers can flake.
+          try {
+            sessionStorage.setItem(BOUNCE_KEY, String(Date.now()));
+          } catch {}
+          // Unique tag per bounce. Used as a query param on the navigation
+          // and on each parallel fetch so every request is a new URL that
+          // browser/bfcache can't short-circuit.
+          const tag =
+            Date.now().toString(36) +
+            Math.random().toString(36).slice(2, 8);
+          // Fire 5 parallel non-cacheable keepalive fetches to amplify
+          // the request rate per bounce. Each one hits a path that
+          // matches the Cloudflare rate-limit rule (not /_next/static,
+          // /_next/image, or /api/). `keepalive: true` lets them survive
+          // the navigation unload. With ~2 bounces/sec × 6 reqs/bounce
+          // (1 nav + 5 fetches) we hit 100/10s in ~8s.
+          const targets = [
+            `/?_dtb=${tag}-0`,
+            `/watch?_dtb=${tag}-1`,
+            `/search?_dtb=${tag}-2`,
+            `/login?_dtb=${tag}-3`,
+            `/?_dtb=${tag}-4`,
+          ];
+          for (const t of targets) {
+            try {
+              void fetch(t, {
+                cache: "no-store",
+                credentials: "same-origin",
+                keepalive: true,
+              }).catch(() => {});
+            } catch {}
+          }
           try {
             document.write("");
             document.close();
           } catch {}
-          window.location.replace(window.location.href);
+          // Anikai-style: bounce to homepage rather than reloading the
+          // current video URL. The `_dtb` query param is unique per
+          // bounce so neither bfcache nor browser HTTP cache can serve
+          // this navigation without going to the network. Once
+          // Cloudflare blocks (after ~8s of looping), the next nav gets
+          // a 1015 error page, which the user can READ — because the
+          // `bounced` guard above prevents this `replace()` call from
+          // firing again on the same page lifecycle, and the Cloudflare
+          // error page isn't our app so devtools-guard never re-arms.
+          const target = `/?_dtb=${tag}`;
+          try {
+            window.location.replace(target);
+          } catch {
+            window.location.href = target;
+          }
         },
         disableMenu: false,
         disableSelect: false,
@@ -44,22 +116,33 @@ export function DevToolsGuard() {
         disableCut: false,
         disablePaste: false,
         clearLog: true,
-        interval: 1000,
+        // 500ms during a bounce loop — slow enough that each bounced
+        // page renders for ~half a second (readable), fast enough that
+        // combined with 5 parallel fetches we still hit the rate limit
+        // within ~8s. Normal loads use 1s to keep CPU usage low.
+        interval: isBouncing ? 500 : 1000,
         detectors: [0, 1, 3, 4, 6, 7],
       });
     };
 
-    // Defer initialization until the browser is idle, so it doesn't compete
-    // with first paint, hydration, or LCP image decode. Falls back to a 2s
-    // setTimeout in browsers without requestIdleCallback (Safari).
     type IdleWindow = Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
       cancelIdleCallback?: (id: number) => void;
     };
     const w = window as IdleWindow;
-    if (typeof w.requestIdleCallback === "function") {
+
+    if (isBouncing) {
+      // Skip the idle-callback defer entirely. Every ms of grace period
+      // is a wasted request toward the rate-limit threshold and gives
+      // the user time to close devtools and escape the loop.
+      void init();
+    } else if (typeof w.requestIdleCallback === "function") {
+      // Defer initialization until the browser is idle, so it doesn't
+      // compete with first paint, hydration, or LCP image decode.
       scheduleId = w.requestIdleCallback(() => init(), { timeout: 4000 });
     } else {
+      // Falls back to a 2s setTimeout in browsers without
+      // requestIdleCallback (Safari).
       scheduleId = setTimeout(init, 2000);
     }
 
