@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
+    unoptimized: true, // Bypass Next.js image optimizer because pushr.io hotlink protection rejects server-to-server fetches
     remotePatterns: [
       {
         protocol: "https",
