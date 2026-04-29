@@ -55,12 +55,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://cdn.rootserver1.com" />
-        
-        
-        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
-          <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
-        )}
+        {/* Preconnect to the CDN actually used for streams, images, and downloads */}
+        <link rel="preconnect" href="https://c6149z6672.r-cdn.com" crossOrigin="anonymous" />
+        {/* Supabase preconnect omitted — self-hosted on hentaiclick.tv (same-origin, no benefit) */}
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-J245QRXDYG" strategy="afterInteractive" />
         <Script id="google-analytics" strategy="afterInteractive">
           {"window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-J245QRXDYG');"}
