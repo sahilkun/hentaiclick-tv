@@ -130,6 +130,7 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
             sizes="(max-width: 640px) 90vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1536px) 25vw, 320px"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             priority={priority}
+            fetchPriority={priority ? "high" : "auto"}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
