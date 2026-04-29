@@ -96,15 +96,14 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
   const qualityBadge = getQualityBadgeText(deriveStreamQualities(episode.stream_links));
 
   // Choose image source based on view mode.
-  // Poster mode: vertical poster image (cover/thumbnail).
-  // Thumbnail mode: prefer 16:9 gallery image (~1920x1080) so it stays sharp on
-  // landscape cards. Cover/thumbnail_url is often a small portrait (~268x394)
-  // which would look stretched/blurry when cropped to 16:9.
+  // Poster mode: vertical poster image (cover).
+  // Thumbnail mode: prefer the small 480x270 card.webp (in thumbnail_url).
+  // On hover: cycle through full-size 1920x1080 gallery images.
   const imageSrc = isPoster
     ? episode.poster_url || episode.thumbnail_url
     : hovering && hasGallery
       ? episode.gallery_urls[galleryIndex]
-      : (hasGallery ? episode.gallery_urls[0] : episode.thumbnail_url);
+      : (episode.thumbnail_url || (hasGallery ? episode.gallery_urls[0] : null));
 
   return (
     <div ref={cardRef}>

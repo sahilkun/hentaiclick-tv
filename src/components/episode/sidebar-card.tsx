@@ -29,9 +29,9 @@ export function SidebarCard({ episode, isCurrent }: SidebarCardProps) {
       {/* Thumbnail */}
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
         {(() => {
-          // Prefer 16:9 gallery image (1920x1080) over portrait cover (~268x394)
-          // which would be cropped/upscaled and look blurry on a landscape card.
-          const src = episode.gallery_urls?.[0] || episode.thumbnail_url;
+          // Prefer the small 480x270 card.webp (thumbnail_url) for performance.
+          // Fall back to gallery_0 (1920x1080) if no card thumbnail is set.
+          const src = episode.thumbnail_url || episode.gallery_urls?.[0];
           return src ? (
             <Image
               src={src}
