@@ -13,6 +13,7 @@ export function DevToolsGuard() {
     if (user?.role === "admin" || user?.role === "moderator") return;
 
     let cancelled = false;
+    let scheduleId: ReturnType<typeof setTimeout> | number | undefined;
 
     const init = async () => {
       const DisableDevtool = (await import("disable-devtool")).default;
@@ -48,10 +49,28 @@ export function DevToolsGuard() {
       });
     };
 
-    init();
+    // Defer initialization until the browser is idle, so it doesn't compete
+    // with first paint, hydration, or LCP image decode. Falls back to a 2s
+    // setTimeout in browsers without requestIdleCallback (Safari).
+    type IdleWindow = Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    const w = window as IdleWindow;
+    if (typeof w.requestIdleCallback === "function") {
+      scheduleId = w.requestIdleCallback(() => init(), { timeout: 4000 });
+    } else {
+      scheduleId = setTimeout(init, 2000);
+    }
 
     return () => {
       cancelled = true;
+      if (scheduleId !== undefined) {
+        if (typeof w.cancelIdleCallback === "function" && typeof scheduleId === "number") {
+          w.cancelIdleCallback(scheduleId);
+        }
+        clearTimeout(scheduleId as ReturnType<typeof setTimeout>);
+      }
     };
   }, [user?.role]);
 
