@@ -44,5 +44,14 @@
     "glob": ">=10.5.0",
     "minimatch": ">=9.0.7",
     "tar": ">=7.5.11"
-  }
+  },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions",
+    "iOS >= 15",
+    "Samsung >= 14",
+    "not dead"
+  ]
 }
