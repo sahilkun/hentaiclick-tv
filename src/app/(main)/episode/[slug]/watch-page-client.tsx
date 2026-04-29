@@ -78,6 +78,8 @@ interface WatchPageClientProps {
   seriesEpisodes: EpisodeWithRelations[];
   studioEpisodes: EpisodeWithRelations[];
   popularWeekly: EpisodeWithRelations[];
+  /** Saved playback position for the current logged-in user (seconds). */
+  initialPosition?: number;
 }
 
 export function WatchPageClient({
@@ -85,6 +87,7 @@ export function WatchPageClient({
   seriesEpisodes,
   studioEpisodes,
   popularWeekly,
+  initialPosition,
 }: WatchPageClientProps) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -126,6 +129,45 @@ export function WatchPageClient({
     userContext,
     episode.upload_date
   );
+
+  // Theater mode: YouTube-style wide layout that drops the right sidebar
+  // and expands the player to ~85vh. Persisted in localStorage so the
+  // user's choice carries across episodes.
+  const [theaterMode, setTheaterMode] = useState(false);
+  // Hydrate from localStorage on mount (client-only).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("theater_mode") === "1") setTheaterMode(true);
+    } catch {}
+  }, []);
+  const toggleTheater = useCallback(() => {
+    setTheaterMode((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("theater_mode", next ? "1" : "0");
+      } catch {}
+      return next;
+    });
+  }, []);
+  // `t` keyboard shortcut to toggle theater mode (matches YouTube). Skip when
+  // typing in inputs/textareas/contenteditable so it doesn't hijack comments.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "t" && e.key !== "T") return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      ) return;
+      e.preventDefault();
+      toggleTheater();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleTheater]);
 
   const handleView = useCallback(async () => {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -177,13 +219,23 @@ export function WatchPageClient({
   return (
     <div>
       {/* ── Two-column layout: Content (left) + Sidebar (right) ── */}
-      <div className="w-full px-1 sm:px-2 lg:px-4 py-6 flex flex-col xl:flex-row gap-6">
+      <div className={cn(
+        "w-full py-6 flex flex-col gap-6",
+        theaterMode ? "px-0" : "px-1 sm:px-2 lg:px-4 xl:flex-row"
+      )}>
 
         {/* ── Left: Episode content ── */}
         <div className="flex-1 min-w-0 space-y-4">
 
           {/* ── Video Player ── */}
-          <div className="relative rounded-lg overflow-hidden bg-[rgba(38,38,38)]">
+          <div className={cn(
+            "relative overflow-hidden bg-[rgba(38,38,38)]",
+            theaterMode
+              // Cap height at 85vh and width to the matching 16:9 size,
+              // centered. Square corners so it visually anchors to the page edge.
+              ? "rounded-none mx-auto w-full max-w-[calc(85vh*16/9)]"
+              : "rounded-lg"
+          )}>
             <VideoPlayer
               streamLinks={episode.stream_links}
               subtitleLinks={episode.subtitle_links}
@@ -191,6 +243,10 @@ export function WatchPageClient({
               availableQualities={streamQualities}
               allowedQualities={allowedQualities}
               hidePlayOverlay={showPoster}
+              theaterMode={theaterMode}
+              onToggleTheater={toggleTheater}
+              episodeId={episode.id}
+              initialPosition={initialPosition}
               onView={handleView}
               onFirstPlay={() => {
                 setShowPoster(false);
@@ -547,8 +603,8 @@ export function WatchPageClient({
             <CommentList episodeId={episode.id} />
           </div>
 
-          {/* ── Mobile/Tablet sidebar (below content on < xl) ── */}
-          <div className="xl:hidden space-y-6">
+          {/* ── Mobile/Tablet sidebar (below content on < xl, or always in theater mode) ── */}
+          <div className={cn("space-y-6", theaterMode ? "" : "xl:hidden")}>
             {/* Playlist (when playing from playlist) */}
             {playlistId && (
               <div className="rounded-lg bg-[rgba(38,38,38)] p-5">
@@ -602,8 +658,11 @@ export function WatchPageClient({
           </div>
         </div>
 
-        {/* ── Right Sidebar (xl+ only) ── */}
-        <div className="hidden xl:block w-[340px] shrink-0 space-y-6">
+        {/* ── Right Sidebar (xl+ only, hidden in theater mode) ── */}
+        <div className={cn(
+          "w-[340px] shrink-0 space-y-6",
+          theaterMode ? "hidden" : "hidden xl:block"
+        )}>
           {/* Playlist sidebar (when playing from playlist) */}
           {playlistId && (
             <PlaylistSidebar

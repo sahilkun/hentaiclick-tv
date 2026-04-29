@@ -6,6 +6,7 @@ import Hls from "hls.js";
 import { cn } from "@/lib/utils";
 import { getStreamUrl, getMasterUrl, getThumbsUrl, getSubtitleEntries, LANGUAGE_LABELS } from "@/lib/cdn";
 import type { Quality } from "@/lib/constants";
+import { useWatchProgress } from "@/hooks/use-watch-progress";
 import {
   loadPreferences,
   savePreferences,
@@ -29,6 +30,13 @@ interface VideoPlayerProps {
   onFirstPlay?: () => void;
   /** When true, the internal center play overlay is hidden (the parent shows its own poster overlay instead). */
   hidePlayOverlay?: boolean;
+  /** Optional: when defined, surfaces the theater-mode toggle button in the controls. */
+  theaterMode?: boolean;
+  onToggleTheater?: () => void;
+  /** Episode UUID. When present, the player periodically POSTs progress to the server. */
+  episodeId?: string;
+  /** If set (in seconds) the player seeks here on first manifest-parsed event. */
+  initialPosition?: number;
   className?: string;
 }
 
@@ -41,6 +49,10 @@ export function VideoPlayer({
   onView,
   onFirstPlay,
   hidePlayOverlay,
+  theaterMode,
+  onToggleTheater,
+  episodeId,
+  initialPosition,
   className,
 }: VideoPlayerProps) {
   // Stable key for streamLinks to use as useEffect dependency
@@ -91,6 +103,16 @@ export function VideoPlayer({
     setToast(message);
     setTimeout(() => setToast(null), 1500);
   }, []);
+
+  // Cross-device watch-progress sync. No-op for anonymous users (server
+  // returns 200 with `anonymous: true`). The hook handles its own
+  // throttling, sendBeacon-on-unload, and bail-outs for short clips.
+  useWatchProgress({
+    episodeId,
+    currentTime: state.currentTime,
+    duration: state.duration,
+    isPlaying: state.playing,
+  });
 
   // Core HLS setup function — stored in a ref so it's always current
   // but never causes re-renders or effect re-runs
@@ -290,7 +312,16 @@ export function VideoPlayer({
         ? prefs.preferredQuality
         : allowedQualities[allowedQualities.length - 1] ?? 720;
 
-    setupHlsRef.current(video, defaultQuality as Quality);
+    // Sanity-cap the resume position: if it's within the last 10s of the
+    // video, don't bother resuming (the user finished it). Also clamp to
+    // 0 so a negative value doesn't break HLS.
+    const safeResume =
+      typeof initialPosition === "number" &&
+      initialPosition > 0 &&
+      Number.isFinite(initialPosition)
+        ? Math.max(0, initialPosition)
+        : undefined;
+    setupHlsRef.current(video, defaultQuality as Quality, safeResume);
 
     // Apply preferences
     video.volume = prefs.volume;
@@ -885,6 +916,8 @@ export function VideoPlayer({
             video.currentTime = Math.min(video.duration, video.currentTime + 10);
             showToast('+10s');
           }}
+          theaterMode={theaterMode}
+          onToggleTheater={onToggleTheater}
         />
       </div>
 

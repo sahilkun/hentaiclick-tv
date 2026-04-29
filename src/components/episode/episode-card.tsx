@@ -17,9 +17,12 @@ interface EpisodeCardProps {
   className?: string;
   viewMode?: ViewMode;
   priority?: boolean;
+  /** When set (0..1), renders a thin red progress bar at the bottom of
+   *  the thumbnail. Used by the Continue Watching shelf. */
+  progressFraction?: number;
 }
 
-export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewMode = "thumbnail", priority }: EpisodeCardProps) {
+export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewMode = "thumbnail", priority, progressFraction }: EpisodeCardProps) {
   const [hovering, setHovering] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
@@ -184,6 +187,22 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
             ))}
           </div>
         )}
+
+        {/* Continue-watching progress bar — pinned to the bottom of the
+            thumbnail, above the stats-overlay gradient. Hidden when
+            progressFraction is undefined (every non-CW shelf passes
+            no prop, so this is invisible there). */}
+        {typeof progressFraction === "number" && progressFraction > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-30 h-[3px] bg-black/50"
+          >
+            <div
+              className="h-full bg-red-500"
+              style={{ width: `${Math.min(100, Math.max(0, progressFraction * 100))}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Text area */}
@@ -219,7 +238,7 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
           </div>
         )}
       </div>
-    </Link>
+      </Link>
     </div>
   );
 });

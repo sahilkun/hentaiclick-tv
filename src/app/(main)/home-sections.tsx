@@ -3,9 +3,23 @@ import {
   getGenresWithPosters,
   getLatestComments,
 } from "@/lib/queries/episodes";
+import { getContinueWatching } from "@/lib/queries/watch-progress";
 import { HomeTabs } from "./home-tabs";
 import { GenreCategories } from "@/components/genre/genre-categories";
 import { LatestComments } from "@/components/comments/latest-comments";
+import { ContinueWatchingShelf } from "@/components/episode/continue-watching-shelf";
+
+/**
+ * Continue Watching shelf for logged-in users. Renders nothing for
+ * anonymous users (the underlying query returns []). Streamed in via
+ * Suspense like the other homepage sections so it doesn't block the
+ * rest of the page if auth cookies are slow.
+ */
+export async function ContinueWatchingSection() {
+  const items = await getContinueWatching(12).catch(() => []);
+  if (items.length === 0) return null;
+  return <ContinueWatchingShelf episodes={items} />;
+}
 
 function catchAndLog(label: string) {
   return (err: unknown) => {

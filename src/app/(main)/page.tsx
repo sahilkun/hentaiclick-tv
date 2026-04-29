@@ -8,6 +8,7 @@ import {
   SecondaryEpisodeTabs,
   GenreCategoriesSection,
   LatestCommentsSection,
+  ContinueWatchingSection,
 } from "./home-sections";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,14 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
+      </section>
+
+      {/* Continue Watching — only renders for logged-in users with progress.
+          Streamed in independently so it doesn't block the rest of the page. */}
+      <section className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 pt-8">
+        <Suspense fallback={null}>
+          <ContinueWatchingSection />
+        </Suspense>
       </section>
 
       {/* Primary Tabs — streams in first */}

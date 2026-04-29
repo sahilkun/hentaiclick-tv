@@ -10,6 +10,7 @@ import {
   Minimize,
   Settings,
   Subtitles,
+  RectangleHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/utils";
@@ -35,6 +36,9 @@ interface PlayerControlsProps {
   onSkipBackward: () => void;
   onSkipForward: () => void;
   onDraggingChange?: (dragging: boolean) => void;
+  /** Optional: when defined, renders a theater-mode toggle button. */
+  theaterMode?: boolean;
+  onToggleTheater?: () => void;
 }
 
 export function PlayerControls({
@@ -55,6 +59,8 @@ export function PlayerControls({
   onSkipBackward,
   onSkipForward,
   onDraggingChange,
+  theaterMode,
+  onToggleTheater,
 }: PlayerControlsProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsPanel, setSettingsPanel] = useState<
@@ -336,6 +342,40 @@ export function PlayerControls({
           <Subtitles className="h-5 w-5" />
         </button>
 
+        {/* Quality indicator badge — clickable shortcut to the quality picker.
+            Shows the active quality at a glance so users don't need to open the
+            settings menu to know what they're streaming at. 4K gets a distinct
+            amber treatment as a premium signal. Hidden on mobile where controls
+            are already tight. */}
+        <button
+          type="button"
+          onClick={() => {
+            // Toggle: if the quality panel is already open, close the menu;
+            // otherwise open it (or switch to it from another panel like
+            // "speed" or "subtitles" — switching is more useful than closing
+            // since the user explicitly clicked the quality badge).
+            if (settingsOpen && settingsPanel === "quality") {
+              setSettingsOpen(false);
+            } else {
+              setSettingsOpen(true);
+              setSettingsPanel("quality");
+            }
+          }}
+          className={cn(
+            "hidden sm:flex h-6 px-2 items-center justify-center rounded text-[11px] font-bold leading-none border transition-colors",
+            state.quality === 2160
+              ? "border-amber-400/60 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+              : "border-white/30 bg-white/5 text-white hover:bg-white/15",
+            settingsOpen && settingsPanel === "quality" && "ring-1 ring-white/40"
+          )}
+          aria-label="Change quality"
+          title="Quality"
+        >
+          {state.quality === "auto"
+            ? "Auto"
+            : QUALITY_LABELS[state.quality as Quality] ?? `${state.quality}p`}
+        </button>
+
         {/* Settings */}
         <div className="relative">
           <button
@@ -428,6 +468,24 @@ export function PlayerControls({
           )}
         </div>
 
+        {/* Theater mode (hidden on mobile + during fullscreen — has no meaning in either) */}
+        {onToggleTheater && !state.fullscreen && (
+          <button
+            type="button"
+            onClick={onToggleTheater}
+            aria-label={theaterMode ? "Exit theater mode (t)" : "Theater mode (t)"}
+            title={theaterMode ? "Exit theater mode (t)" : "Theater mode (t)"}
+            className={cn(
+              "hidden md:flex h-8 w-8 items-center justify-center text-white hover:text-primary",
+              theaterMode && "text-primary"
+            )}
+          >
+            <RectangleHorizontal
+              className={cn("h-5 w-5", theaterMode && "fill-primary")}
+              strokeWidth={2}
+            />
+          </button>
+        )}
         {/* Fullscreen */}
         <button type="button" onClick={onToggleFullscreen} className="flex h-8 w-8 items-center justify-center text-white hover:text-primary">
           {state.fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}

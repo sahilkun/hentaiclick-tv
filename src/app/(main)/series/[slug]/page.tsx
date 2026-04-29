@@ -80,14 +80,39 @@ export default async function SeriesDetailPage({ params }: Props) {
   );
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
+  const seriesUrl = `${siteUrl}/series/${slug}`;
+  // Distinct seasons present in the loaded episode list. Used both for
+  // `numberOfSeasons` and (when >1) to nest episodes under TVSeason
+  // entities. For the common 1-season case we keep the structure flat.
+  const seasonNumbers = Array.from(
+    new Set(episodes.map((e: any) => e.season_no).filter(Boolean))
+  );
+  // Lightweight TVEpisode entries — URL + name + numbering only — so
+  // Google can crawl the whole series in one structured-data fetch
+  // without bloating page weight with nested objects.
+  const episodeEntities = episodes.map((ep: any) => ({
+    "@type": "TVEpisode",
+    name: ep.title,
+    url: `${siteUrl}/episode/${ep.slug}`,
+    ...(ep.episode_no && { episodeNumber: ep.episode_no }),
+    ...(ep.season_no && {
+      partOfSeason: {
+        "@type": "TVSeason",
+        seasonNumber: ep.season_no,
+      },
+    }),
+  }));
   const seriesJsonLd = {
     "@context": "https://schema.org",
-    "@type": "CreativeWorkSeries",
+    "@type": "TVSeries",
     name: series.title,
-    url: `${siteUrl}/series/${slug}`,
+    url: seriesUrl,
     ...(series.description && { description: series.description }),
     ...(series.cover_url && { image: series.cover_url }),
     ...(series.year && { startDate: String(series.year) }),
+    inLanguage: "ja",
+    isFamilyFriendly: false,
+    publisher: { "@id": `${siteUrl}/#organization` },
     ...(series.studio && {
       productionCompany: {
         "@type": "Organization",
@@ -99,6 +124,8 @@ export default async function SeriesDetailPage({ params }: Props) {
       genre: genres.map((g: any) => g.name),
     }),
     numberOfEpisodes: episodes.length,
+    ...(seasonNumbers.length > 0 && { numberOfSeasons: seasonNumbers.length }),
+    ...(episodeEntities.length > 0 && { episode: episodeEntities }),
   };
 
   const breadcrumbJsonLd = {
