@@ -17,6 +17,28 @@ export function DevToolsGuard() {
     // Skip the anti-devtools script for staff so they can debug.
     if (user?.role === "admin" || user?.role === "moderator") return;
 
+    // Skip on auth + admin paths up-front — the role-based bypass above
+    // doesn't help during the login flow itself (the user is unauth'd
+    // when the guard arms, then becomes admin only AFTER signin resolves
+    // and the cookie is set). Without this, an admin trying to log in
+    // with devtools open gets bounced between `signInWithPassword`
+    // resolving and `useAuth()` hydrating the role — which looks like
+    // the login button being "stuck on Logging in..." indefinitely.
+    // Same logic for password reset / OAuth callback flows.
+    if (typeof window !== "undefined") {
+      const p = window.location.pathname;
+      if (
+        p.startsWith("/login") ||
+        p.startsWith("/register") ||
+        p.startsWith("/forgot-password") ||
+        p.startsWith("/email-confirmed") ||
+        p.startsWith("/auth/") ||
+        p.startsWith("/admin")
+      ) {
+        return;
+      }
+    }
+
     // Skip for synthetic / automation tools. Lighthouse, PageSpeed
     // Insights, Selenium, Playwright, Cypress, and friends all attach
     // via Chrome DevTools Protocol, which `disable-devtool` flags as
