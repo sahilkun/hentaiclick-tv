@@ -46,4 +46,4 @@ export const AVATAR_ALLOWED_TYPES = [
 
 export const SITE_NAME = "HentaiClick";
 export const SITE_DESCRIPTION =
-  "Watch the highest quality hentai in 4K, 1080p, and HD for free.";
+  "AI-decensored hentai in 4K, 1080p, and HD — for free.";

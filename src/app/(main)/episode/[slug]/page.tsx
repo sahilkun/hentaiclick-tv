@@ -22,15 +22,38 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const episode = await getEpisodeBySlug(slug);
   if (!episode) return { title: "Episode Not Found" };
 
-  const desc =
-    episode.meta_description ??
-    `Watch ${episode.title} in HD quality on ${SITE_NAME}.`;
+  // Lead with the AI-decensored phrase when applicable. It's our
+  // unique value-add (most competitors just have plain censored
+  // uploads) and a low-competition long-tail keyword. Detected via
+  // the genre tag we attach to every episode whose source MKV had
+  // ".decensored" in its filename — see CLAUDE.md genre rules.
+  const isAiDecensored = (episode.genres ?? []).some(
+    (g: { slug?: string }) => g?.slug === "ai-decensored"
+  );
+  const seriesSuffix = episode.series ? ` from ${episode.series.title}` : "";
+
+  const fallbackTitle = isAiDecensored
+    ? `AI-Decensored ${episode.title} in 4K HD`
+    : `Watch ${episode.title}${episode.series ? ` (${episode.series.title})` : ""} in 4K HD`;
+
+  const fallbackDesc = isAiDecensored
+    ? `Watch AI-decensored ${episode.title}${seriesSuffix} in 4K, 1080p, and HD — free streaming, download with English subtitles.`
+    : `Watch ${episode.title}${seriesSuffix} in 4K, 1080p, and HD — free streaming and download with subtitles on ${SITE_NAME}.`;
+
+  // Slightly shorter title for OG / Twitter cards where preview UIs
+  // truncate aggressively. Skip the "in 4K HD" suffix; keep the AI
+  // signal so social shares still carry the differentiator.
+  const ogTitle = isAiDecensored
+    ? `AI-Decensored ${episode.title}`
+    : episode.title;
+
+  const desc = episode.meta_description ?? fallbackDesc;
 
   return {
-    title: episode.meta_title ?? `Watch ${episode.title}${episode.series ? ` (${episode.series.title})` : ""} in 4K HD`,
+    title: episode.meta_title ?? fallbackTitle,
     description: desc,
     openGraph: {
-      title: episode.title,
+      title: ogTitle,
       description: desc,
       type: "video.episode",
       url: `/episode/${episode.slug}`,
@@ -40,7 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title: episode.title,
+      title: ogTitle,
       description: desc,
       ...(episode.poster_url && { images: [episode.poster_url] }),
     },

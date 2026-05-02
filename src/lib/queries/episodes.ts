@@ -346,8 +346,11 @@ export async function getGenres() {
 
 /* ─── Genre posters (cached, batched — no N+1) ─── */
 
-/** Featured genre slugs shown in the Categories section on the homepage */
+/** Featured genre slugs shown in the Categories section on the homepage.
+ *  `ai-decensored` is pinned to position 1 — it's our value-add over the
+ *  source (we ran the local AI decensoring pipeline on these uploads). */
 const FEATURED_GENRE_SLUGS = [
+  "ai-decensored",
   "big-boobs",
   "creampie",
   "rape",
@@ -357,7 +360,6 @@ const FEATURED_GENRE_SLUGS = [
   "gangbang",
   "blow-job",
   "vanilla",
-  "uncensored",
 ];
 
 

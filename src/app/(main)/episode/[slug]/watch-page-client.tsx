@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Building2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { EpisodeList } from "@/components/episode/episode-list";
@@ -312,12 +313,15 @@ export function WatchPageClient({
                   <p className="text-sm text-muted-foreground">{episode.regional_name}</p>
                 )}
                 {episode.series && (
-                  <Link
-                    href={`/series/${episode.series.slug}`}
-                    className="mt-0.5 block text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {episode.series.title}
-                  </Link>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground/80">Series:</span>{" "}
+                    <Link
+                      href={`/series/${episode.series.slug}`}
+                      className="hover:text-primary transition-colors"
+                    >
+                      {episode.series.title}
+                    </Link>
+                  </p>
                 )}
 
                 {/* Dates & Studio row */}
@@ -351,15 +355,20 @@ export function WatchPageClient({
                     </span>
                   )}
                   {studioName && (
-                    <span className="text-muted-foreground">|</span>
-                  )}
-                  {studioName && studioSlug && (
-                    <Link
-                      href={`/studios/${studioSlug}`}
-                      className="hover:text-primary transition-colors"
-                    >
-                      {studioName}
-                    </Link>
+                    <span className="flex items-center gap-1" title="Studio">
+                      <Building2 className="h-3.5 w-3.5" />
+                      <span className="font-medium text-foreground/80">Studio:</span>{" "}
+                      {studioSlug ? (
+                        <Link
+                          href={`/studios/${studioSlug}`}
+                          className="hover:text-primary transition-colors"
+                        >
+                          {studioName}
+                        </Link>
+                      ) : (
+                        studioName
+                      )}
+                    </span>
                   )}
                 </div>
 

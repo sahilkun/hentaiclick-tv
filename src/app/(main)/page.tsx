@@ -15,11 +15,11 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   description:
-    "Watch the highest quality hentai in 4K, 1080p, and HD for free. Stream and download episodes with subtitles. New releases added daily.",
+    "AI-decensored hentai in 4K, 1080p, and HD — for free. Stream and download episodes with subtitles. New releases daily.",
   openGraph: {
-    title: "HentaiClick - Watch Hentai in 4K, 1080p, HD Free",
+    title: "AI-Decensored Hentai in 4K, 1080p, HD — HentaiClick",
     description:
-      "Stream and download the best hentai in 4K, 1080p, and HD. New episodes added daily.",
+      "AI-decensored hentai in 4K, 1080p, and HD — for free. Stream and download episodes with subtitles. New releases daily.",
     url: "/",
     images: [{ url: "/og-image.png", width: 1424, height: 752 }],
   },
