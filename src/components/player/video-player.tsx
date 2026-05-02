@@ -77,6 +77,14 @@ export function VideoPlayer({
   const MAX_RETRIES = 3;
 
   const [toast, setToast] = useState<string | null>(null);
+  // Thumbnail-sprite cell to overlay on the <video> while paused-and-seeking,
+  // so the displayed frame matches the seekbar position even though hls.js
+  // hasn't decoded the actual video frame yet. Cleared on `play`.
+  const [pausedPreviewCue, setPausedPreviewCue] = useState<ThumbCue | null>(null);
+  // Stable ref so the `seek` useCallback can read latest cues without
+  // re-binding (and therefore without re-binding the props passed down to
+  // PlayerControls on every cue change).
+  const thumbCuesRef = useRef<ThumbCue[]>([]);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [thumbCues, setThumbCues] = useState<ThumbCue[]>([]);
   const firstPlayFiredRef = useRef(false);
@@ -152,6 +160,24 @@ export function VideoPlayer({
         maxMaxBufferLength: 60,
         backBufferLength: 90,
         lowLatencyMode: false,
+        // Append fragment data to the SourceBuffer as it streams in,
+        // instead of waiting for the full segment to download. The very
+        // first frame after a seek is therefore visible while the rest
+        // of the segment is still arriving — matches the YouTube/Netflix
+        // perception of "instant" seeks. Negligible cost; supported by
+        // every browser that runs hls.js.
+        progressive: true,
+        // Default 0.25 means hls.js can return a fragment whose start is
+        // up to 250ms BEFORE the requested time — useful for live but
+        // wastes a bit on VOD seeks where we already know the keyframe
+        // alignment. Setting to 0 makes the lookup pick the exact-or-
+        // later frag, avoiding a backwards re-fetch.
+        maxFragLookUpTolerance: 0,
+        // Cap how long hls.js waits before declaring a fragment load
+        // "stalled" and trying alternatives. Default ~4s. Cutting to 2s
+        // means a slow CDN edge gets retried twice as fast, so the user
+        // doesn'''t feel a multi-second hang on a single bad fetch.
+        maxLoadingDelay: 2,
       });
       hlsRef.current = hls;
 
@@ -300,6 +326,13 @@ export function VideoPlayer({
     }
   };
 
+  // Mirror thumb cues into a ref so the stable `seek` callback can read
+  // the latest set without taking thumbCues as a dependency (which would
+  // re-create every prop passed down to PlayerControls).
+  useEffect(() => {
+    thumbCuesRef.current = thumbCues;
+  }, [thumbCues]);
+
   // Initialize HLS
   useEffect(() => {
     const video = videoRef.current;
@@ -390,6 +423,18 @@ export function VideoPlayer({
     const onPlay = () => {
       if (!firstPlayFiredRef.current) { firstPlayFiredRef.current = true; onFirstPlay?.(); }
       setState((s) => ({ ...s, playing: true }));
+      // NOTE: do NOT clear pausedPreviewCue here. `play` fires the moment
+      // playback is requested, but hls.js still needs to fetch + decode
+      // the segment at the seeked position. Clearing the overlay here
+      // would briefly expose the stale <video> frame (the last frame
+      // decoded BEFORE the seek). We clear in the `playing` handler
+      // below instead, which fires when frames at the new position are
+      // actually flowing.
+    };
+    const onPlaying = () => {
+      // Real frames at the seeked position are now rendered — safe to
+      // hide the thumbnail overlay.
+      setPausedPreviewCue(null);
     };
     const onPause = () => setState((s) => ({ ...s, playing: false }));
     const onWaiting = () => setState((s) => ({ ...s, loading: true }));
@@ -400,6 +445,7 @@ export function VideoPlayer({
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("progress", onProgress);
     video.addEventListener("play", onPlay);
+    video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("canplay", onCanPlay);
@@ -409,6 +455,7 @@ export function VideoPlayer({
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("progress", onProgress);
       video.removeEventListener("play", onPlay);
+      video.removeEventListener("playing", onPlaying);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("canplay", onCanPlay);
@@ -646,6 +693,22 @@ export function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
     video.currentTime = time;
+    // hls.js quirk: seeking on a *paused* element doesn't reliably fetch +
+    // decode the segment at the new position, so the <video> keeps showing
+    // the last-decoded frame. Force-decoding via a play()/pause() cycle
+    // works but is slow (requires segment fetch + decode each time).
+    // Instead we paint the thumbnail-sprite cell at the seeked time as a
+    // lightweight overlay over the <video>; the sprite is already in the
+    // cache, so the visible "current frame" updates instantly. The actual
+    // <video> frame will catch up the next time playback starts.
+    if (video.paused && thumbCuesRef.current.length > 0) {
+      const cue = thumbCuesRef.current.find(
+        (cu) => time >= cu.start && time < cu.end
+      );
+      setPausedPreviewCue(cue ?? null);
+    } else {
+      setPausedPreviewCue(null);
+    }
   }, []);
 
   const setVolume = useCallback((vol: number) => {
@@ -841,6 +904,59 @@ export function VideoPlayer({
         onTouchMove={resetHideTimer}
         playsInline
       />
+
+      {/* Paused-seek thumbnail overlay. Renders only while paused with a
+          matched cue. Pointer-events-none so clicks fall through to the
+          <video> for resume-on-click. */}
+      {!state.playing && pausedPreviewCue && (() => {
+        // Compute sprite grid dimensions from the cue set. Each cell is
+        // (cue.w × cue.h) px; sprite is (cols × rows) cells. Per-cell
+        // scaling uses the well-known CSS sprite trick:
+        //   - background-size:    `${cols*100}% ${rows*100}%`  -> 1 cell = 100% of container
+        //   - background-position: `(col / (cols-1)) * 100%`   -> selects the cell
+        // No knowledge of the underlying pixel dimensions needed.
+        let cols = 1;
+        let rows = 1;
+        for (const cu of thumbCues) {
+          const ci = Math.round(cu.x / Math.max(1, cu.w));
+          const ri = Math.round(cu.y / Math.max(1, cu.h));
+          if (ci + 1 > cols) cols = ci + 1;
+          if (ri + 1 > rows) rows = ri + 1;
+        }
+        const cue = pausedPreviewCue;
+        if (!cue.isSprite) {
+          // Single-image-per-cue (older `thumb*.jpg` format).
+          return (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[1] bg-black"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={cue.url}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            </div>
+          );
+        }
+        const col = Math.round(cue.x / Math.max(1, cue.w));
+        const row = Math.round(cue.y / Math.max(1, cue.h));
+        const posX = cols > 1 ? `${(col / (cols - 1)) * 100}%` : "0";
+        const posY = rows > 1 ? `${(row / (rows - 1)) * 100}%` : "0";
+        return (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[1] bg-black"
+            style={{
+              backgroundImage: `url("${cue.url}")`,
+              backgroundSize: `${cols * 100}% ${rows * 100}%`,
+              backgroundPosition: `${posX} ${posY}`,
+              backgroundRepeat: "no-repeat",
+            }}
+          />
+        );
+      })()}
 
       {/* Loading spinner */}
       {state.loading && !state.error && (
