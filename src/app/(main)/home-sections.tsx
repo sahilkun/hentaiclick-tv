@@ -16,7 +16,7 @@ import { ContinueWatchingShelf } from "@/components/episode/continue-watching-sh
  * rest of the page if auth cookies are slow.
  */
 export async function ContinueWatchingSection() {
-  const items = await getContinueWatching(12).catch(() => []);
+  const items = await getContinueWatching(6).catch(() => []);
   if (items.length === 0) return null;
   return <ContinueWatchingShelf episodes={items} />;
 }

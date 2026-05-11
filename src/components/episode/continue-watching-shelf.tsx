@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { EpisodeCard } from "@/components/episode/episode-card";
 import type { ContinueWatchingItem } from "@/lib/queries/watch-progress";
 
@@ -20,14 +19,8 @@ export function ContinueWatchingShelf({ episodes }: ContinueWatchingShelfProps) 
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between border-b border-border pb-3">
+      <div className="mb-6 border-b border-border pb-3">
         <h2 className="text-lg font-bold">Continue Watching</h2>
-        <Link
-          href="/account/history"
-          className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
-        >
-          View all
-        </Link>
       </div>
       {/* Reuse the same grid breakpoints as EpisodeGrid so spacing matches */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
