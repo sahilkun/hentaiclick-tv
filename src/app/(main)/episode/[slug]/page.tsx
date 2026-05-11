@@ -32,9 +32,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   );
   const seriesSuffix = episode.series ? ` from ${episode.series.title}` : "";
 
+  // The title.template (" | HentaiClick" = 14 chars) is appended by
+  // the layout, and Google truncates SERP titles around 60 chars. So
+  // the prefix portion should stay under ~46 chars to leave room for
+  // the brand suffix. For long episode titles (e.g. romaji light-novel
+  // adaptations like "Otaku no Boku ga Ichigun Gal..."), drop the
+  // "in 4K HD" tail. We keep the "AI-Decensored" lead because it's the
+  // ranking-relevant keyword. Non-AI episodes also drop the series
+  // parenthetical first since it's redundant when the episode title
+  // already contains the series name (e.g. "Honey Blonde 2 - 1").
+  const aiTitleFull = `AI-Decensored ${episode.title} in 4K HD`;
+  const aiTitleShort = `AI-Decensored ${episode.title}`;
+  const nonAiTitleFull = `Watch ${episode.title}${episode.series ? ` (${episode.series.title})` : ""} in 4K HD`;
+  const nonAiTitleNoSeries = `Watch ${episode.title} in 4K HD`;
+  const nonAiTitleShort = `Watch ${episode.title}`;
+
   const fallbackTitle = isAiDecensored
-    ? `AI-Decensored ${episode.title} in 4K HD`
-    : `Watch ${episode.title}${episode.series ? ` (${episode.series.title})` : ""} in 4K HD`;
+    ? aiTitleFull.length <= 46
+      ? aiTitleFull
+      : aiTitleShort
+    : nonAiTitleFull.length <= 46
+      ? nonAiTitleFull
+      : nonAiTitleNoSeries.length <= 46
+        ? nonAiTitleNoSeries
+        : nonAiTitleShort;
 
   const fallbackDesc = isAiDecensored
     ? `Watch AI-decensored ${episode.title}${seriesSuffix} in 4K, 1080p, and HD — free streaming, download with English subtitles.`
