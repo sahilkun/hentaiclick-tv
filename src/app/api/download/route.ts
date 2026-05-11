@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
+import { createHash, createHmac } from "crypto";
 import { CDN_DOWNLOAD_BASE, CDN_STREAM_BASE } from "@/lib/constants";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -22,6 +22,13 @@ function getAllowedCdnBases(): string[] {
 function hashIp(ip: string): string {
   const salt = process.env.IP_HASH_SALT || "";
   return createHash("sha256").update(salt + ip).digest("hex");
+}
+
+/** HMAC-SHA256(${url}|${expiresMs}) using IP_HASH_SALT as the secret.
+ *  Validated by the /api/download/file proxy route to prevent forged URLs. */
+function signedDownloadSig(url: string, expiresMs: number): string {
+  const secret = process.env.IP_HASH_SALT || "";
+  return createHmac("sha256", secret).update(`${url}|${expiresMs}`).digest("hex");
 }
 
 /** Verify Turnstile token for guest downloads. */
@@ -173,7 +180,19 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ---- Return CDN URL (no proxy, no double egress) ----
-  // Frontend calls this via fetch and navigates to `url` to start the actual download.
-  return NextResponse.json({ url: cdnUrl });
+  // ---- Return a signed proxy URL ----
+  // pushr.io forces `Content-Disposition: inline; filename="<key>"` on
+  // every object regardless of the metadata we set via mc --attr, so we
+  // can't fix downloads at the CDN. The /api/download/file route proxies
+  // the bytes back with `Content-Disposition: attachment` injected,
+  // which makes browsers actually download instead of inline-playing the
+  // MKV. The HMAC signature locks the proxy URL to (cdnUrl, expiresMs)
+  // so it can'''t be reused outside its 5-minute window — quota/auth/
+  // captcha all still gate the URL generation here.
+  const expiresMs = Date.now() + 5 * 60 * 1000;
+  const sig = signedDownloadSig(cdnUrl, expiresMs);
+  const proxyUrl =
+    `/api/download/file?url=${encodeURIComponent(cdnUrl)}` +
+    `&exp=${expiresMs}&sig=${sig}`;
+  return NextResponse.json({ url: proxyUrl });
 }
