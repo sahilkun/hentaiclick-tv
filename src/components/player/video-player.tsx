@@ -160,24 +160,18 @@ export function VideoPlayer({
         maxMaxBufferLength: 60,
         backBufferLength: 90,
         lowLatencyMode: false,
-        // Append fragment data to the SourceBuffer as it streams in,
-        // instead of waiting for the full segment to download. The very
-        // first frame after a seek is therefore visible while the rest
-        // of the segment is still arriving — matches the YouTube/Netflix
-        // perception of "instant" seeks. Negligible cost; supported by
-        // every browser that runs hls.js.
-        progressive: true,
-        // Default 0.25 means hls.js can return a fragment whose start is
-        // up to 250ms BEFORE the requested time — useful for live but
-        // wastes a bit on VOD seeks where we already know the keyframe
-        // alignment. Setting to 0 makes the lookup pick the exact-or-
-        // later frag, avoiding a backwards re-fetch.
-        maxFragLookUpTolerance: 0,
-        // Cap how long hls.js waits before declaring a fragment load
-        // "stalled" and trying alternatives. Default ~4s. Cutting to 2s
-        // means a slow CDN edge gets retried twice as fast, so the user
-        // doesn'''t feel a multi-second hang on a single bad fetch.
-        maxLoadingDelay: 2,
+        // Recent tuning history (all reverted to defaults — see git log):
+        //  - `progressive: true`  + `maxLoadingDelay: 2` → caused
+        //    mid-playback rebuffering on slow networks.
+        //  - `maxFragLookUpTolerance: 0` + `capLevelToPlayerSize: true`
+        //    + `fragLoadingMaxRetry: 3` + `fragLoadingMaxRetryTimeout:
+        //    8000` → caused slow initial load (~12s) and seeking
+        //    sometimes got stuck until a second seek. The combination
+        //    of player-size capping at HLS-init time (before the
+        //    element finishes layout) and aggressive retry caps
+        //    appears to put hls.js into a confused state. Reverted to
+        //    library defaults until we can re-introduce one tuning at
+        //    a time with testing.
       });
       hlsRef.current = hls;
 
