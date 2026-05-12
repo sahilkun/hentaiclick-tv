@@ -56,7 +56,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* Preconnect to the CDN actually used for streams, images, and downloads */}
-        <link rel="preconnect" href="https://c6149z6672.r-cdn.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://cdn.hentaiclick.tv" crossOrigin="anonymous" />
         {/* Supabase preconnect omitted — self-hosted on hentaiclick.tv (same-origin, no benefit) */}
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-J245QRXDYG" strategy="lazyOnload" />
         <Script id="google-analytics" strategy="lazyOnload">

@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getEpisodeBySlug, getEpisodesBySeries, getEpisodesByStudio, getEpisodes } from "@/lib/queries/episodes";
 import { getAnonClient } from "@/lib/supabase/anon";
-import { SITE_NAME, CDN_STREAM_BASE } from "@/lib/constants";
+import { SITE_NAME } from "@/lib/constants";
+import { getMasterUrl } from "@/lib/cdn";
 import { WatchPageClient } from "./watch-page-client";
 import { getEpisodeProgress } from "@/lib/queries/watch-progress";
 
@@ -96,19 +97,20 @@ function getVideoJsonLd(episode: NonNullable<Awaited<ReturnType<typeof getEpisod
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
   const pageUrl = `${siteUrl}/episode/${episode.slug}`;
 
-  // Build the public master playlist URL from stream_links + CDN base.
-  // Google's video indexing strongly prefers `contentUrl` to be present —
-  // it lets the crawler verify the video file exists and infer technical
-  // metadata. Fall back gracefully if either piece is missing.
-  const masterPath =
-    (episode.stream_links as Record<string, string> | null | undefined)?.master;
-  const contentUrl =
-    masterPath && CDN_STREAM_BASE
-      ? `${CDN_STREAM_BASE}/${masterPath
-          .split("/")
-          .map(encodeURIComponent)
-          .join("/")}`
-      : undefined;
+  // Build the public master playlist URL from stream_links. Use the
+  // shared resolver so per-episode full-URL overrides (used during the
+  // pushr → R2 migration) survive — `getMasterUrl` returns the value
+  // as-is when it's already an absolute URL, otherwise prepends the
+  // configured CDN base. Google's video indexing strongly prefers
+  // `contentUrl` to be present — falls back to undefined if missing.
+  const rawMasterUrl = getMasterUrl(
+    (episode.stream_links as Record<string, string> | null | undefined) ?? {}
+  );
+  // Ensure non-ASCII chars in the path are percent-encoded for SEO
+  // structured data (Googlebot expects RFC 3986 URLs).
+  const contentUrl = rawMasterUrl
+    ? rawMasterUrl.replace(/[^\x21-\x7E]/g, encodeURIComponent).replace(/ /g, "%20")
+    : undefined;
 
   // Source audio is Japanese; subtitle_links keys are 2-letter language
   // codes for available subtitle tracks. Combine them for `inLanguage`.

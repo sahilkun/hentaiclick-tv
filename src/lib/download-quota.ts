@@ -1,23 +1,25 @@
 /**
- * Download quota and concurrency limits for non-premium users.
+ * Download quota for non-premium users.
  *
  * Free users (logged-in or guest) are restricted to:
- *   - 1 concurrent download (15-minute slot window)
- *   - 2 downloads per rolling 24h period
+ *   - 5 downloads per rolling 24h period
+ *
+ * Concurrency is no longer enforced: now that downloads go through R2
+ * + Cloudflare, the CDN itself splits bandwidth fairly across parallel
+ * streams from the same client, so a hard "1 at a time" rule is just
+ * friction.
  *
  * Premium / admin / moderator users skip these checks entirely.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export const FREE_DAILY_LIMIT = 2;
-export const FREE_CONCURRENT_LIMIT = 1;
-const CONCURRENCY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+export const FREE_DAILY_LIMIT = 5;
 const DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type QuotaResult =
   | { ok: true }
-  | { ok: false; reason: "daily" | "concurrent"; retryAfterSeconds: number };
+  | { ok: false; reason: "daily"; retryAfterSeconds: number };
 
 interface CheckArgs {
   supabase: SupabaseClient;
@@ -38,7 +40,6 @@ export async function checkDownloadQuota({
 }: CheckArgs): Promise<QuotaResult> {
   const now = Date.now();
   const dayCutoff = new Date(now - DAILY_WINDOW_MS).toISOString();
-  const concurrencyCutoff = new Date(now - CONCURRENCY_WINDOW_MS).toISOString();
 
   // Build the user identity filter
   const filter = userId
@@ -63,26 +64,6 @@ export async function checkDownloadQuota({
       ok: false,
       reason: "daily",
       retryAfterSeconds: Math.ceil(DAILY_WINDOW_MS / 1000),
-    };
-  }
-
-  // Concurrency (events in last 15 min act as in-flight slots)
-  const { count: activeCount, error: concErr } = await supabase
-    .from("download_events")
-    .select("*", { count: "exact", head: true })
-    .eq(filter.column, filter.value)
-    .gte("created_at", concurrencyCutoff);
-
-  if (concErr) {
-    console.error("[downloads] concurrency check failed:", concErr.message);
-    return { ok: true };
-  }
-
-  if ((activeCount ?? 0) >= FREE_CONCURRENT_LIMIT) {
-    return {
-      ok: false,
-      reason: "concurrent",
-      retryAfterSeconds: Math.ceil(CONCURRENCY_WINDOW_MS / 1000),
     };
   }
 

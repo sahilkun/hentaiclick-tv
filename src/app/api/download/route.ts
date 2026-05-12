@@ -24,10 +24,16 @@ function hashIp(ip: string): string {
   return createHash("sha256").update(salt + ip).digest("hex");
 }
 
-/** HMAC-SHA256(${url}|${expiresMs}) using IP_HASH_SALT as the secret.
- *  Validated by the /api/download/file proxy route to prevent forged URLs. */
+/** HMAC-SHA256(${url}|${expiresMs}) using SIGNED_URL_SECRET as the key.
+ *  Validated inside the Cloudflare Worker (cdn-worker.js) before R2
+ *  serves the bytes — the VPS only mints the signature, it never sees
+ *  the file body, so a 2 GB MKV download costs us zero VPS egress.
+ *  Falls back to IP_HASH_SALT for a short transition window if the new
+ *  secret isn't yet plumbed through (Worker will simply reject — which
+ *  is the right failure mode rather than silently mis-signing). */
 function signedDownloadSig(url: string, expiresMs: number): string {
-  const secret = process.env.IP_HASH_SALT || "";
+  const secret =
+    process.env.SIGNED_URL_SECRET || process.env.IP_HASH_SALT || "";
   return createHmac("sha256", secret).update(`${url}|${expiresMs}`).digest("hex");
 }
 
@@ -154,13 +160,12 @@ export async function GET(request: NextRequest) {
     });
 
     if (!quota.ok) {
-      const message =
-        quota.reason === "daily"
-          ? `Daily download limit reached (${FREE_DAILY_LIMIT} per day). Upgrade to premium for unlimited downloads.`
-          : "You already have a download in progress. Wait for it to finish, or upgrade to premium for unlimited concurrent downloads.";
+      // Only "daily" is reachable now that the concurrent-limit check
+      // is removed. Cloudflare splits bandwidth across parallel requests
+      // from the same client, so the old "1 at a time" rule is gone.
       return NextResponse.json(
         {
-          error: message,
+          error: `Daily download limit reached (${FREE_DAILY_LIMIT} per day). Upgrade to premium for unlimited downloads.`,
           reason: quota.reason,
           retryAfterSeconds: quota.retryAfterSeconds,
         },
@@ -180,19 +185,32 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // ---- Return a signed proxy URL ----
-  // pushr.io forces `Content-Disposition: inline; filename="<key>"` on
-  // every object regardless of the metadata we set via mc --attr, so we
-  // can't fix downloads at the CDN. The /api/download/file route proxies
-  // the bytes back with `Content-Disposition: attachment` injected,
-  // which makes browsers actually download instead of inline-playing the
-  // MKV. The HMAC signature locks the proxy URL to (cdnUrl, expiresMs)
-  // so it can'''t be reused outside its 5-minute window — quota/auth/
-  // captcha all still gate the URL generation here.
+  // ---- Return a signed CDN URL ----
+  // The browser fetches the MKV directly from cdn.hentaiclick.tv with
+  // the ?exp=&sig= query — the Worker validates the HMAC against
+  // SIGNED_URL_SECRET, then R2 streams the bytes via Cloudflare's
+  // edge. The VPS is out of the data path entirely; only this one
+  // route runs (auth + quota + sign), which is a few-KB JSON
+  // response. 5-minute expiry.
+  //
+  // CRITICAL: sign on `${origin}${pathname}` after parsing through
+  // `new URL(...)`. That gives us the percent-encoded canonical form
+  // that the Worker also reconstructs from `url.origin + url.pathname`.
+  // Without this, `cdnUrl` may contain literal spaces (e.g. "Honey
+  // Blonde 2 - 01/...") and the signing string would not match the
+  // browser's actual request, where spaces get encoded to %20.
   const expiresMs = Date.now() + 5 * 60 * 1000;
-  const sig = signedDownloadSig(cdnUrl, expiresMs);
-  const proxyUrl =
-    `/api/download/file?url=${encodeURIComponent(cdnUrl)}` +
-    `&exp=${expiresMs}&sig=${sig}`;
-  return NextResponse.json({ url: proxyUrl });
+  let canonical: URL;
+  try {
+    canonical = new URL(cdnUrl);
+  } catch {
+    return NextResponse.json(
+      { error: "Malformed download URL." },
+      { status: 400 }
+    );
+  }
+  const signedBase = `${canonical.origin}${canonical.pathname}`;
+  const sig = signedDownloadSig(signedBase, expiresMs);
+  const signedUrl = `${signedBase}?exp=${expiresMs}&sig=${sig}`;
+  return NextResponse.json({ url: signedUrl });
 }

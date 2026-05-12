@@ -105,21 +105,19 @@ export function stripHtmlTags(input: string): string {
 
 /** Allowed CDN hostnames for user-facing image/download URLs. */
 const ALLOWED_CDN_HOSTS = new Set([
+  // R2-fronted CDN — primary host since the pushr.io → R2 migration.
+  "cdn.hentaiclick.tv",
+  // Legacy hosts kept in case any non-episode asset still references them.
   "cdn.rootserver1.com",
   "cdn.rootserver2.com",
 ]);
 
-/** Validate a URL uses https and points to an allowed CDN hostname.
- * Accepts the explicit allowlist above plus any *.r-cdn.com subdomain
- * (R2-compatible buckets change hostname when recreated). */
+/** Validate a URL uses https and points to an allowed CDN hostname. */
 export function isAllowedCdnUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return false;
-    if (ALLOWED_CDN_HOSTS.has(parsed.hostname)) return true;
-    // Allow any subdomain of r-cdn.com (e.g. c6149z6672.r-cdn.com)
-    if (parsed.hostname.endsWith(".r-cdn.com")) return true;
-    return false;
+    return ALLOWED_CDN_HOSTS.has(parsed.hostname);
   } catch {
     return false;
   }

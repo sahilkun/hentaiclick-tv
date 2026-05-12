@@ -178,7 +178,7 @@ export function DownloadModal({
             userContext.role !== "moderator" &&
             !userContext.isPremium && (
               <p className="mt-2 text-center text-xs text-muted-foreground">
-                Free users: 2 downloads/day · 1 at a time ·{" "}
+                Free users: 5 downloads/day ·{" "}
                 <a href="/premium" className="text-primary hover:underline">
                   Go premium
                 </a>{" "}
