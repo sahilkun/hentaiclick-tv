@@ -23,11 +23,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const episode = await getEpisodeBySlug(slug);
   if (!episode) return { title: "Episode Not Found" };
 
-  // Lead with the AI-decensored phrase when applicable. It's our
+  // Lead with the AI-Uncensored phrase when applicable. It's our
   // unique value-add (most competitors just have plain censored
-  // uploads) and a low-competition long-tail keyword. Detected via
-  // the genre tag we attach to every episode whose source MKV had
-  // ".decensored" in its filename — see CLAUDE.md genre rules.
+  // uploads) AND uses "uncensored" — the search term users actually
+  // type by a ~20× margin over "decensored". Detected via the
+  // ai-decensored genre tag we attach to every episode whose source
+  // MKV had ".decensored" in its filename — see CLAUDE.md genre
+  // rules. Slug intentionally stays `ai-decensored` for URL
+  // stability; only the display copy moves to "Uncensored".
   const isAiDecensored = (episode.genres ?? []).some(
     (g: { slug?: string }) => g?.slug === "ai-decensored"
   );
@@ -36,14 +39,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // The title.template (" | HentaiClick" = 14 chars) is appended by
   // the layout, and Google truncates SERP titles around 60 chars. So
   // the prefix portion should stay under ~46 chars to leave room for
-  // the brand suffix. For long episode titles (e.g. romaji light-novel
-  // adaptations like "Otaku no Boku ga Ichigun Gal..."), drop the
-  // "in 4K HD" tail. We keep the "AI-Decensored" lead because it's the
-  // ranking-relevant keyword. Non-AI episodes also drop the series
-  // parenthetical first since it's redundant when the episode title
-  // already contains the series name (e.g. "Honey Blonde 2 - 1").
-  const aiTitleFull = `AI-Decensored ${episode.title} in 4K HD`;
-  const aiTitleShort = `AI-Decensored ${episode.title}`;
+  // the brand suffix. Three-tier fallback covers long romaji titles
+  // (e.g. "Otaku no Boku ga Ichigun Gal..."):
+  //   1. Full: "Watch AI Uncensored {title} in 4K HD"
+  //   2. Drop "in 4K HD"
+  //   3. Drop "AI Uncensored"
+  // Always lead with "Watch" — it's the highest-volume verb users type
+  // for episode-page-intent queries ("watch <title>", "watch
+  // uncensored hentai", etc.). Non-AI episodes get a similar shape
+  // without the "AI Uncensored" qualifier.
+  const aiTitleFull = `Watch AI Uncensored ${episode.title} in 4K HD`;
+  const aiTitleNoQuality = `Watch AI Uncensored ${episode.title}`;
+  const aiTitleShort = `Watch ${episode.title} Uncensored`;
   const nonAiTitleFull = `Watch ${episode.title}${episode.series ? ` (${episode.series.title})` : ""} in 4K HD`;
   const nonAiTitleNoSeries = `Watch ${episode.title} in 4K HD`;
   const nonAiTitleShort = `Watch ${episode.title}`;
@@ -51,23 +58,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const fallbackTitle = isAiDecensored
     ? aiTitleFull.length <= 46
       ? aiTitleFull
-      : aiTitleShort
+      : aiTitleNoQuality.length <= 46
+        ? aiTitleNoQuality
+        : aiTitleShort
     : nonAiTitleFull.length <= 46
       ? nonAiTitleFull
       : nonAiTitleNoSeries.length <= 46
         ? nonAiTitleNoSeries
         : nonAiTitleShort;
 
+  // Meta description hits all three verbs (watch / stream / download)
+  // so the same page can match "watch <title>" + "stream <title>" +
+  // "download <title>" queries without needing per-verb landing pages.
   const fallbackDesc = isAiDecensored
-    ? `Watch AI-decensored ${episode.title}${seriesSuffix} in 4K, 1080p, and HD — free streaming, download with English subtitles.`
-    : `Watch ${episode.title}${seriesSuffix} in 4K, 1080p, and HD — free streaming and download with subtitles on ${SITE_NAME}.`;
+    ? `Watch ${episode.title}${seriesSuffix} AI-uncensored in 4K HD. Stream free or download the full MKV in 1080p / 4K — English subtitles included.`
+    : `Watch ${episode.title}${seriesSuffix} in 4K HD on ${SITE_NAME}. Stream free or download the full MKV in 1080p / 4K with English subtitles.`;
 
   // Slightly shorter title for OG / Twitter cards where preview UIs
   // truncate aggressively. Skip the "in 4K HD" suffix; keep the AI
   // signal so social shares still carry the differentiator.
   const ogTitle = isAiDecensored
-    ? `AI-Decensored ${episode.title}`
-    : episode.title;
+    ? `Watch AI Uncensored ${episode.title}`
+    : `Watch ${episode.title}`;
 
   const desc = episode.meta_description ?? fallbackDesc;
 

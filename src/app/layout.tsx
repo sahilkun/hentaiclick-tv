@@ -28,11 +28,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "AI-Decensored Hentai in 4K, 1080p, HD — HentaiClick",
+    default: "Watch AI Uncensored Hentai in 4K HD — HentaiClick",
     template: "%s | HentaiClick",
   },
   description:
-    "AI-decensored hentai in 4K, 1080p, and HD — for free. Stream and download episodes with subtitles. New releases daily.",
+    "Watch and download AI uncensored hentai in 4K, 1080p, and HD on HentaiClick. Stream new decensored episodes free with English subtitles. New releases daily.",
   openGraph: {
     type: "website",
     siteName: "HentaiClick",

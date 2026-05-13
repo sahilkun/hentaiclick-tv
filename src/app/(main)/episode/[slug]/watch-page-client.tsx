@@ -67,7 +67,7 @@ const PlaylistSidebar = dynamic(
 import { cn, formatNumber } from "@/lib/utils";
 import { getStreamableQualities } from "@/lib/access";
 import { deriveStreamQualities } from "@/lib/cdn";
-import { QUALITY_LABELS, WATCH_HISTORY_MAX_ENTRIES } from "@/lib/constants";
+import { QUALITY_LABELS, SITE_NAME, WATCH_HISTORY_MAX_ENTRIES } from "@/lib/constants";
 import { WARNING_GENRES, genreColor } from "@/lib/genre-colors";
 import { isAllowedCdnUrl } from "@/lib/validation";
 import { useAuth } from "@/hooks/use-auth";
@@ -125,6 +125,34 @@ export function WatchPageClient({
   };
 
   const streamQualities = deriveStreamQualities(episode.stream_links);
+
+  // Used by the on-page tagline under the player. Lists the streamable
+  // qualities in human form ("4K, 1080p, 720p"), and flags whether the
+  // episode is AI-uncensored so the copy can claim it. Both feed an
+  // SEO-relevant body-copy paragraph that hits "stream" + "download"
+  // verbs alongside the per-episode title — keeps the homepage SEO
+  // pattern consistent across all 38+ episode pages without feeling
+  // like keyword stuffing.
+  const qualityLabel = (q: number) => (q === 2160 ? "4K" : `${q}p`);
+  const qualityList = streamQualities.length
+    ? streamQualities
+        .slice()
+        .sort((a, b) => b - a) // highest first reads better in copy
+        .map(qualityLabel)
+        .join(", ")
+    : "HD";
+  const isAiUncensored = (episode.genres ?? []).some(
+    (g: { slug?: string }) => g?.slug === "ai-decensored"
+  );
+  const downloadableQualities = Object.keys(episode.download_links ?? {})
+    .map(Number)
+    .filter((n) => !isNaN(n))
+    .sort((a, b) => b - a)
+    .map(qualityLabel);
+  const downloadFragment =
+    downloadableQualities.length > 0
+      ? `or download the ${isAiUncensored ? "AI-uncensored " : ""}MKV in ${downloadableQualities.join(" or ")}`
+      : null;
   const allowedQualities = getStreamableQualities(
     streamQualities,
     userContext,
@@ -289,6 +317,22 @@ export function WatchPageClient({
               </button>
             )}
           </div>
+
+          {/* SEO tagline directly below the player. Single line, muted,
+              keeps the verbs (Stream / Watch / Download) on every
+              episode page alongside the episode title and quality
+              variants — fills the verb-density gap the homepage
+              long-form copy block can't reach on episode pages. */}
+          <p className="text-center text-xs text-muted-foreground sm:text-sm">
+            Stream{" "}
+            <span className="font-medium text-foreground">
+              {episode.title}
+            </span>{" "}
+            {isAiUncensored ? "AI-uncensored " : ""}in {qualityList} HD on{" "}
+            {SITE_NAME}
+            {downloadFragment ? `, ${downloadFragment}` : ""} for offline
+            viewing. English subtitles included.
+          </p>
 
           {/* Header: Poster + Title + Meta */}
           <div className="rounded-lg bg-[rgba(38,38,38)] p-5">

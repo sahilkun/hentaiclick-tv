@@ -29,7 +29,10 @@ export const VIEW_COUNT_TRIGGER_SECONDS = 30;
 
 export const SEARCH_DEBOUNCE_MS = 200;
 export const SEARCH_DROPDOWN_LIMIT = 8;
-export const SEARCH_PAGE_SIZE = 25;
+// 24 = lcm(2,3,4,6,8) — the episode grid renders at 1/2/3/4/6/8 columns
+// depending on viewport, so 24 makes every row fully balanced regardless
+// of breakpoint (no orphan trailing cards on any screen).
+export const SEARCH_PAGE_SIZE = 24;
 
 export const COMMENT_MAX_LENGTH = 2000;
 export const COMMENT_MAX_NESTING = 2;
@@ -46,4 +49,4 @@ export const AVATAR_ALLOWED_TYPES = [
 
 export const SITE_NAME = "HentaiClick";
 export const SITE_DESCRIPTION =
-  "AI-decensored hentai in 4K, 1080p, and HD — for free.";
+  "Watch and download AI-uncensored hentai in 4K, 1080p, and HD — stream free with English subtitles.";
