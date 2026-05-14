@@ -14,7 +14,17 @@ const getSitemapData = unstable_cache(
       { data: studios },
       { data: playlists },
     ] = await Promise.all([
-      supabase.from("episodes").select("slug, updated_at").eq("status", "published").order("upload_date", { ascending: false }).limit(45000),
+      // Episode rows carry the extra fields needed for the per-episode
+      // <video:video> sitemap entry (thumbnail / title / description /
+      // duration / publish date).
+      supabase
+        .from("episodes")
+        .select(
+          "slug, updated_at, upload_date, title, poster_url, thumbnail_url, meta_description, description, duration_seconds"
+        )
+        .eq("status", "published")
+        .order("upload_date", { ascending: false })
+        .limit(45000),
       supabase.from("series").select("slug, updated_at").limit(1000),
       supabase.from("genres").select("slug, created_at"),
       supabase.from("studios").select("slug, created_at"),
@@ -49,12 +59,63 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const { episodes, series, genres, studios, playlists } = await getSitemapData();
 
-  const episodePages: MetadataRoute.Sitemap = episodes.map((ep: any) => ({
-    url: `${siteUrl}/episode/${ep.slug}`,
-    lastModified: ep.updated_at ? new Date(ep.updated_at) : undefined,
-    changeFrequency: "weekly" as const,
-    priority: 0.9,
-  }));
+  const episodePages: MetadataRoute.Sitemap = episodes.map((ep: any) => {
+    const pageUrl = `${siteUrl}/episode/${ep.slug}`;
+
+    // Build a <video:video> entry so episodes surface in Google Video
+    // search + the Videos tab and are eligible for video rich results.
+    //   - thumbnail_loc / title / description are Google-REQUIRED.
+    //   - player_loc points at the watch page: streaming sites use
+    //     player_loc (the page hosting the HLS.js player) rather than
+    //     content_loc, since there's no single downloadable file —
+    //     and the .mkv download URLs are HMAC-gated (403 to crawlers).
+    //   - family_friendly: "no" is the honest signal for adult content
+    //     so Google applies SafeSearch correctly instead of
+    //     mis-categorising the whole site.
+    // An entry is only attached when a thumbnail exists — thumbnail_loc
+    // is required and Google rejects a <video:video> without it.
+    // poster_url / thumbnail_url are stored with literal spaces (the
+    // schema convention). A literal space is invalid in a URL and
+    // Google's video sitemap validator can reject the whole entry, so
+    // percent-encode it. encodeURI leaves :// and / intact and only
+    // encodes the unsafe chars (spaces), and our stored URLs are never
+    // pre-encoded, so there's no double-encoding risk.
+    const rawThumb: string | undefined =
+      ep.poster_url || ep.thumbnail_url || undefined;
+    const thumb = rawThumb ? encodeURI(rawThumb) : undefined;
+    const description =
+      (ep.meta_description || ep.description || "").trim() ||
+      `Watch ${ep.title} on HentaiClick.`;
+    const duration: number | undefined =
+      ep.duration_seconds > 0 && ep.duration_seconds <= 28800
+        ? ep.duration_seconds
+        : undefined;
+
+    return {
+      url: pageUrl,
+      lastModified: ep.updated_at ? new Date(ep.updated_at) : undefined,
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+      ...(thumb
+        ? {
+            videos: [
+              {
+                title: String(ep.title).slice(0, 100),
+                thumbnail_loc: thumb,
+                description: description.slice(0, 2048),
+                player_loc: pageUrl,
+                family_friendly: "no" as const,
+                requires_subscription: "no" as const,
+                ...(duration ? { duration } : {}),
+                ...(ep.upload_date
+                  ? { publication_date: new Date(ep.upload_date).toISOString() }
+                  : {}),
+              },
+            ],
+          }
+        : {}),
+    };
+  });
 
   const seriesPages: MetadataRoute.Sitemap = series.map((s: any) => ({
     url: `${siteUrl}/series/${s.slug}`,
