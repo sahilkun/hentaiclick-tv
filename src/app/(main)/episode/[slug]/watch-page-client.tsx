@@ -370,11 +370,15 @@ export function WatchPageClient({
 
                 {/* Dates & Studio row */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1" title="Uploaded">
+                  <span className="flex items-center gap-1" title="Added to HentaiClick">
                     <Upload className="h-3.5 w-3.5" />
                     <span className="font-medium text-foreground/80">Uploaded:</span>{" "}
                     {(() => {
-                      const uploaded = new Date(episode.upload_date);
+                      // created_at is the true "added to our catalog" time.
+                      // upload_date is backfilled from release_date for
+                      // chronological sorting, so it would just duplicate
+                      // the "Released:" line shown right next to this one.
+                      const uploaded = new Date(episode.created_at);
                       const ageMs = Date.now() - uploaded.getTime();
                       // Within 24h → relative; otherwise → absolute date
                       if (ageMs < 24 * 60 * 60 * 1000) {

@@ -44,6 +44,12 @@ async function fetchEpisodes(
 
   switch (sort) {
     case "recently_uploaded":
+      // upload_date is backfilled from release_date (+ episode_no as a
+      // same-day tiebreaker) and kept in sync by a DB trigger, so this
+      // sort reflects studio release chronology — NOT when the row was
+      // inserted. That's intentional: episodes are added to the catalog
+      // out of order (new releases first, older backfill later) and we
+      // never want a 2022 episode added today to jump to the front.
       query = query.order("upload_date", { ascending: false });
       break;
     case "recently_released":
