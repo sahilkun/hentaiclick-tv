@@ -29,19 +29,18 @@ function catchAndLog(label: string) {
 }
 
 export async function PrimaryEpisodeTabs() {
-  // "Recently Uploaded" and "Recently Released" used to be separate
-  // tabs. upload_date is now backfilled from release_date (and kept in
-  // sync by a DB trigger), so both sorts produce an identical order —
-  // merged into one "Latest Episodes" tab to drop the redundancy.
-  const [latestEpisodes, topViewedWeekly] = await Promise.all([
-    getEpisodes("recently_uploaded", 12).catch(catchAndLog("recently_uploaded")),
-    getEpisodes("trending", 12).catch(catchAndLog("trending")),
-  ]);
+  const [recentlyUploaded, recentlyReleased, topViewedWeekly] =
+    await Promise.all([
+      getEpisodes("recently_uploaded", 12).catch(catchAndLog("recently_uploaded")),
+      getEpisodes("recently_released", 12).catch(catchAndLog("recently_released")),
+      getEpisodes("trending", 12).catch(catchAndLog("trending")),
+    ]);
 
   return (
     <HomeTabs
       primarySections={{
-        "Latest Episodes": latestEpisodes,
+        "Recently Uploaded": recentlyUploaded,
+        "Recently Released": recentlyReleased,
         "Top Viewed This Week": topViewedWeekly,
       }}
       secondarySections={{}}

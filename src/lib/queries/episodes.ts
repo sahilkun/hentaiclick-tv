@@ -44,12 +44,13 @@ async function fetchEpisodes(
 
   switch (sort) {
     case "recently_uploaded":
-      // upload_date is backfilled from release_date (+ episode_no as a
-      // same-day tiebreaker) and kept in sync by a DB trigger, so this
-      // sort reflects studio release chronology — NOT when the row was
-      // inserted. That's intentional: episodes are added to the catalog
-      // out of order (new releases first, older backfill later) and we
-      // never want a 2022 episode added today to jump to the front.
+      // upload_date holds hstream.moe's uploaded date for each episode
+      // (not when the row was inserted here, and not the studio release
+      // date). Episodes are added to our catalog out of order — newest
+      // releases first, older back-catalogue later — so sorting by
+      // insert time would scatter the feed. Mirroring hstream's upload
+      // order keeps "latest" meaningful. The + (episode_no minute)
+      // offset baked into upload_date is just a same-day tiebreaker.
       query = query.order("upload_date", { ascending: false });
       break;
     case "recently_released":
