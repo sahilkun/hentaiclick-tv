@@ -296,7 +296,17 @@ export function WatchPageClient({
                   const container = e.currentTarget.parentElement;
                   const video = container?.querySelector("video");
                   if (video) {
-                    video.play().catch(() => {});
+                    // Resilient play: video.play() rejects with
+                    // NotAllowedError when the browser won't grant audio
+                    // output — most often on mobile *during a phone call*
+                    // (the call owns audio focus). Retry MUTED, which the
+                    // browser always allows; the player's volumechange
+                    // listener syncs the mute button so the user can
+                    // unmute once the call ends.
+                    video.play().catch(() => {
+                      video.muted = true;
+                      video.play().catch(() => {});
+                    });
                   }
                 }}
                 className="absolute inset-0 flex items-center justify-center cursor-pointer"

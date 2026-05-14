@@ -435,6 +435,13 @@ export function VideoPlayer({
     const onCanPlay = () => setState((s) => ({ ...s, loading: false }));
     const onDurationChange = () =>
       setState((s) => ({ ...s, duration: video.duration || 0 }));
+    // Keep the mute/volume UI in sync with the element. Needed because
+    // mute can change from *outside* the React tree — e.g. the poster
+    // overlay's resilient-play fallback force-mutes the element when the
+    // browser refuses audio (phone call). Without this, the mute button
+    // would show the wrong state until the next manual interaction.
+    const onVolumeChange = () =>
+      setState((s) => ({ ...s, muted: video.muted, volume: video.volume }));
 
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("progress", onProgress);
@@ -444,6 +451,7 @@ export function VideoPlayer({
     video.addEventListener("waiting", onWaiting);
     video.addEventListener("canplay", onCanPlay);
     video.addEventListener("durationchange", onDurationChange);
+    video.addEventListener("volumechange", onVolumeChange);
 
     return () => {
       video.removeEventListener("timeupdate", onTimeUpdate);
@@ -454,8 +462,35 @@ export function VideoPlayer({
       video.removeEventListener("waiting", onWaiting);
       video.removeEventListener("canplay", onCanPlay);
       video.removeEventListener("durationchange", onDurationChange);
+      video.removeEventListener("volumechange", onVolumeChange);
     };
   }, [onView]);
+
+  // Resilient play. `video.play()` rejects with NotAllowedError whenever
+  // the browser won't grant audio output — most commonly on mobile
+  // *during a phone call* (the call owns audio focus), but also under
+  // autoplay policy. A bare `video.play()` in that state just rejects
+  // silently and the video stays frozen. Standard fix: on rejection,
+  // retry MUTED — the browser always allows muted playback — and sync
+  // the mute state so the UI reflects it. The user can unmute once the
+  // call ends (or tap the unmute button). This is what robust players
+  // (incl. the competitor the user compared against) do.
+  //
+  // Declared before the keyboard-shortcut effect below so it can sit in
+  // that effect's dependency array without a use-before-declaration error.
+  const attemptPlay = useCallback((video: HTMLVideoElement) => {
+    const p = video.play();
+    if (p && typeof p.catch === "function") {
+      p.catch(() => {
+        if (video.muted) return; // already muted and still failed — give up
+        video.muted = true;
+        setState((s) => ({ ...s, muted: true }));
+        video.play().catch(() => {
+          /* even muted playback refused — nothing more we can do */
+        });
+      });
+    }
+  }, []);
 
   // Auto-hide controls
   const resetHideTimer = useCallback(() => {
@@ -482,7 +517,7 @@ export function VideoPlayer({
       switch (e.key.toLowerCase()) {
         case " ":
           e.preventDefault();
-          video.paused ? video.play() : video.pause();
+          video.paused ? attemptPlay(video) : video.pause();
           break;
         case "f":
           toggleFullscreen();
@@ -530,7 +565,7 @@ export function VideoPlayer({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [resetHideTimer, showToast]);
+  }, [resetHideTimer, showToast, attemptPlay]);
 
   // Sync fullscreen state with browser via fullscreenchange event
   useEffect(() => {
@@ -626,8 +661,8 @@ export function VideoPlayer({
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.paused ? video.play() : video.pause();
-  }, []);
+    video.paused ? attemptPlay(video) : video.pause();
+  }, [attemptPlay]);
 
   // Track last tap position for left/right side detection
   const lastTapXRef = useRef(0);
@@ -788,7 +823,7 @@ export function VideoPlayer({
 
       if (hls) {
         const onParsed = () => {
-          if (wasPlaying) video.play();
+          if (wasPlaying) attemptPlay(video);
           hls.off(Hls.Events.MANIFEST_PARSED, onParsed);
         };
         hls.on(Hls.Events.MANIFEST_PARSED, onParsed);
@@ -798,7 +833,7 @@ export function VideoPlayer({
       savePreferences({ preferredQuality: quality });
       showToast(`Quality: ${quality}p`);
     },
-    [showToast, streamLinks]
+    [showToast, streamLinks, attemptPlay]
   );
 
   const changeSpeed = useCallback(
