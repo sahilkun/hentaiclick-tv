@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Eye, Heart, MessageCircle, TriangleAlert } from "lucide-react";
@@ -107,24 +107,6 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
     : hovering && hasGallery
       ? episode.gallery_urls[galleryIndex]
       : (episode.thumbnail_url || (hasGallery ? episode.gallery_urls[0] : null));
-
-  // Genre badges shown on the card. Two rules on top of the raw DB list:
-  //   1. Drop "vanilla" — too generic to be informative on a tile.
-  //   2. Pin "uncensored" to the second slot when present. Position 1
-  //      stays whatever it was (usually "AI Uncensored" for decensored
-  //      episodes; first-by-name otherwise), and "Uncensored" sits
-  //      right next to it. Both halves of the "uncensored" story
-  //      stay visible-early, which is the keyword we want recognised
-  //      at-a-glance.
-  const displayGenres = useMemo(() => {
-    const list = (episode.genres ?? []).filter((g) => g.slug !== "vanilla");
-    const i = list.findIndex((g) => g.slug === "uncensored");
-    if (i >= 0 && list.length > 1) {
-      const [u] = list.splice(i, 1);
-      list.splice(1, 0, u);
-    }
-    return list;
-  }, [episode.genres]);
 
   return (
     <div ref={cardRef}>
@@ -233,9 +215,9 @@ export const EpisodeCard = memo(function EpisodeCard({ episode, className, viewM
             {episode.description}
           </p>
         )}
-        {displayGenres.length > 0 && (
+        {episode.genres && episode.genres.length > 0 && (
           <div className="mt-1.5 flex flex-wrap gap-1">
-            {displayGenres.map((genre) => {
+            {episode.genres.map((genre) => {
               const isWarning = WARNING_GENRES.has(genre.slug);
               return (
                 <Link
