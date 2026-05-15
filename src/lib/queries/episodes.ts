@@ -405,12 +405,21 @@ async function fetchGenresWithPosters(): Promise<GenreWithPosters[]> {
 
   const genreIds = genres.map((g: any) => g.id);
 
-  // 2. Batch fetch all episode_genres rows for these genres
+  // 2. Batch fetch all episode_genres rows for these genres.
+  //
+  // The previous .limit(200) silently truncated this list whenever the
+  // 10 featured genres' combined row count exceeded 200 — and since
+  // there's no ORDER BY, the rows dropped were arbitrary. That caused
+  // the Uncensored tile to render with 0 posters: only 6 episodes were
+  // tagged uncensored and those 6 rows landed in the dropped tail.
+  // Bumped to 5000 — well above realistic growth (10 genres × hundreds
+  // of episodes each is still under that ceiling) — so every tagged
+  // episode is considered.
   const { data: allEpisodeGenres } = await supabase
     .from("episode_genres")
     .select("genre_id, episode:episode_id ( poster_url )")
     .in("genre_id", genreIds)
-    .limit(200);
+    .limit(5000);
 
   // 3. Build genreId -> poster_urls map
   const posterMap: Record<string, string[]> = {};
@@ -446,7 +455,7 @@ async function fetchGenresWithPosters(): Promise<GenreWithPosters[]> {
         .in("series_id", Array.from(seriesIdSet))
         .not("poster_url", "is", null)
         .eq("status", "published")
-        .limit(200);
+        .limit(5000); // see step 2 — same truncation risk applied here
 
       const seriesPosterMap: Record<string, string[]> = {};
       for (const ep of eps ?? []) {
