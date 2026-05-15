@@ -123,12 +123,11 @@ export default function HomePage() {
               Stream hentai online in 4K
             </h3>
             <p>
-              Every episode streams adaptive-bitrate HLS from a global
-              Cloudflare edge cache — pick 720p, 1080p, or 4K (2160p) on the
-              fly with no buffering. Subtitles are baked into the HLS
-              playlist and switch on with one click. New uncensored episodes
-              are added regularly; bookmark the homepage or follow the
-              latest releases below.
+              Every episode streams adaptive-bitrate HLS — pick 720p, 1080p,
+              or 4K (2160p) on the fly with no buffering. Subtitles are baked
+              into the HLS playlist and switch on with one click. New
+              uncensored episodes are added regularly; bookmark the homepage
+              or follow the latest releases below.
             </p>
           </div>
 
@@ -138,10 +137,10 @@ export default function HomePage() {
             </h3>
             <p>
               Hit the Download button on any episode to grab the full
-              AI-uncensored MKV in 1080p or 4K. Files are signed and
-              streamed directly from Cloudflare — no waiting, no ads, no
-              shady redirects. Free users get five downloads per day;
-              premium users get unlimited downloads at full speed.
+              AI-uncensored MKV in 1080p or 4K. Downloads use one-time
+              signed URLs and stream directly to your browser — no waiting,
+              no ads, no shady redirects. Free users get five downloads per
+              day; premium users get unlimited downloads at full speed.
             </p>
           </div>
 
