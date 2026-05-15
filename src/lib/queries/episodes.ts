@@ -354,10 +354,15 @@ export async function getGenres() {
 /* ─── Genre posters (cached, batched — no N+1) ─── */
 
 /** Featured genre slugs shown in the Categories section on the homepage.
- *  `ai-decensored` is pinned to position 1 — it's our value-add over the
- *  source (we ran the local AI decensoring pipeline on these uploads). */
+ *  Order matters — the array index drives the tile order (see the sort
+ *  by FEATURED_GENRE_SLUGS.indexOf below).
+ *  - Position 1: `ai-decensored` — our value-add over the source (we
+ *    ran the local AI decensoring pipeline on these uploads).
+ *  - Position 2: `uncensored` — the high-volume SEO term users actually
+ *    search for; sits right next to AI Uncensored. */
 const FEATURED_GENRE_SLUGS = [
   "ai-decensored",
+  "uncensored",
   "big-boobs",
   "creampie",
   "rape",
