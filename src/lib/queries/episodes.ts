@@ -371,7 +371,6 @@ const FEATURED_GENRE_SLUGS = [
   "x-ray",
   "gangbang",
   "blow-job",
-  "vanilla",
 ];
 
 
