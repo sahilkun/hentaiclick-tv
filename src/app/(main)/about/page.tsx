@@ -2,17 +2,27 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/constants";
 import { safeJsonLd } from "@/lib/utils";
+import { buildOpenGraph, buildTwitter } from "@/lib/seo";
+
+const ABOUT_TITLE = "About — HentaiClick";
+const ABOUT_DESCRIPTION =
+  "About HentaiClick — a free streaming and download site for AI-uncensored hentai in 4K, 1080p, and HD with English subtitles. Built on an in-house AI decensoring pipeline.";
+const ABOUT_OG_TITLE = "About HentaiClick";
+const ABOUT_OG_DESCRIPTION =
+  "Learn about HentaiClick, our in-house AI decensoring pipeline, the catalog, and how we stream uncensored hentai in 4K.";
 
 export const metadata: Metadata = {
-  title: "About — HentaiClick",
-  description:
-    "About HentaiClick — a free streaming and download site for AI-uncensored hentai in 4K, 1080p, and HD with English subtitles. Built on an in-house AI decensoring pipeline.",
-  openGraph: {
-    title: "About HentaiClick",
-    description:
-      "Learn about HentaiClick, our in-house AI decensoring pipeline, the catalog, and how we stream uncensored hentai in 4K.",
+  title: ABOUT_TITLE,
+  description: ABOUT_DESCRIPTION,
+  openGraph: buildOpenGraph({
+    title: ABOUT_OG_TITLE,
+    description: ABOUT_OG_DESCRIPTION,
     url: "/about",
-  },
+  }),
+  twitter: buildTwitter({
+    title: ABOUT_OG_TITLE,
+    description: ABOUT_OG_DESCRIPTION,
+  }),
   alternates: { canonical: "/about" },
 };
 
@@ -28,7 +38,7 @@ const siteUrl = "https://hentaiclick.tv";
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "@id": `${siteUrl}#organization`,
+  "@id": `${siteUrl}/#organization`,
   name: SITE_NAME,
   url: siteUrl,
   description:
@@ -51,9 +61,9 @@ const aboutPageJsonLd = {
   url: `${siteUrl}/about`,
   name: "About HentaiClick",
   inLanguage: "en-US",
-  isPartOf: { "@id": `${siteUrl}#website` },
-  about: { "@id": `${siteUrl}#organization` },
-  mainEntity: { "@id": `${siteUrl}#organization` },
+  isPartOf: { "@id": `${siteUrl}/#website` },
+  about: { "@id": `${siteUrl}/#organization` },
+  mainEntity: { "@id": `${siteUrl}/#organization` },
 };
 
 const breadcrumbJsonLd = {

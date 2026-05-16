@@ -6,6 +6,7 @@ import { getAnonClient } from "@/lib/supabase/anon";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getStudioBySlug, getStudioEpisodes } from "@/lib/queries/studios";
+import { buildOpenGraph, buildTwitter } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -29,15 +30,41 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description =
     studio.description ||
     `Watch every hentai episode by ${studio.name} on HentaiClick — AI-uncensored and originally-uncensored releases streaming in 4K, 1080p, and HD with English subtitles. 1080p / 4K MKV downloads available.`;
+  const ogTitle = `${title} | HentaiClick`;
+
+  // Prefer studio.logo_url (square brand mark) → first episode poster
+  // (16:9 thumbnail) → site default. Studio logos are usually square
+  // 256x256 which is fine for Twitter `summary_large_image` (they get
+  // letterboxed but readable). Episode posters are 1280x720 which is
+  // ideal but per-studio variety on shares is less interesting than
+  // the brand mark, so logo wins when available.
+  const firstEpisode = (await getStudioEpisodes(studio.id))[0];
+  const ogImageUrl: string | undefined =
+    studio.logo_url || firstEpisode?.poster_url || undefined;
+  const ogImage = ogImageUrl
+    ? {
+        url: ogImageUrl,
+        ...(studio.logo_url
+          ? { width: 256, height: 256 }
+          : { width: 1280, height: 720 }),
+        alt: `${studio.name} on HentaiClick`,
+      }
+    : undefined;
 
   return {
     title,
     description,
-    openGraph: {
-      title: `${title} | HentaiClick`,
+    openGraph: buildOpenGraph({
+      title: ogTitle,
       description,
       url: `/studios/${slug}`,
-    },
+      image: ogImage,
+    }),
+    twitter: buildTwitter({
+      title: ogTitle,
+      description,
+      image: ogImageUrl,
+    }),
     alternates: { canonical: `/studios/${slug}` },
   };
 }
@@ -74,7 +101,7 @@ export default async function StudioDetailPage({ params }: Props) {
       studio.description ||
       `Every hentai episode by ${studio.name} in the HentaiClick catalog — AI-uncensored and originally-uncensored, streaming in 4K, 1080p, and HD.`,
     inLanguage: "en-US",
-    isPartOf: { "@id": `${siteUrl}#website` },
+    isPartOf: { "@id": `${siteUrl}/#website` },
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: episodeCount,

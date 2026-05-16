@@ -2,17 +2,27 @@ import { safeJsonLd } from "@/lib/utils";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getGenres } from "@/lib/queries/episodes";
+import { buildOpenGraph, buildTwitter } from "@/lib/seo";
+
+const GENRES_TITLE = "Browse Hentai by Genre — All Categories";
+const GENRES_DESCRIPTION =
+  "Browse the full HentaiClick catalog by genre — vanilla, yuri, milf, big tits, ahegao, romance, fantasy, and dozens more. AI-uncensored hentai streaming in 4K, 1080p, and HD with English subtitles.";
+const GENRES_OG_TITLE = "Browse Hentai by Genre | HentaiClick";
+const GENRES_OG_DESCRIPTION =
+  "Find your favorite hentai categories — vanilla, yuri, milf, big tits, ahegao, romance, fantasy, and more. Streaming and downloads in 4K, 1080p, and HD.";
 
 export const metadata: Metadata = {
-  title: "Browse Hentai by Genre — All Categories",
-  description:
-    "Browse the full HentaiClick catalog by genre — vanilla, yuri, milf, big tits, ahegao, romance, fantasy, and dozens more. AI-uncensored hentai streaming in 4K, 1080p, and HD with English subtitles.",
-  openGraph: {
-    title: "Browse Hentai by Genre | HentaiClick",
-    description:
-      "Find your favorite hentai categories — vanilla, yuri, milf, big tits, ahegao, romance, fantasy, and more. Streaming and downloads in 4K, 1080p, and HD.",
+  title: GENRES_TITLE,
+  description: GENRES_DESCRIPTION,
+  openGraph: buildOpenGraph({
+    title: GENRES_OG_TITLE,
+    description: GENRES_OG_DESCRIPTION,
     url: "/genres",
-  },
+  }),
+  twitter: buildTwitter({
+    title: GENRES_OG_TITLE,
+    description: GENRES_OG_DESCRIPTION,
+  }),
   alternates: { canonical: "/genres" },
 };
 
@@ -35,7 +45,7 @@ export default async function GenresPage() {
       "Index of every genre in the HentaiClick catalog — AI-uncensored hentai streaming in 4K, 1080p, and HD.",
     url: `${siteUrl}/genres`,
     inLanguage: "en-US",
-    isPartOf: { "@id": `${siteUrl}#website` },
+    isPartOf: { "@id": `${siteUrl}/#website` },
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: genres.length,

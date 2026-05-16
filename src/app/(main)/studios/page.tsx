@@ -3,17 +3,27 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getAnonClient } from "@/lib/supabase/anon";
+import { buildOpenGraph, buildTwitter } from "@/lib/seo";
+
+const STUDIOS_TITLE = "Browse Hentai by Studio — All Animation Studios";
+const STUDIOS_DESCRIPTION =
+  "Browse hentai by animation studio. Find episodes from Pink Pineapple, T-Rex, Lune Pictures, Mary Jane, Queen Bee, and every other studio in the HentaiClick catalog. 4K, 1080p, HD.";
+const STUDIOS_OG_TITLE = "Browse Hentai by Studio | HentaiClick";
+const STUDIOS_OG_DESCRIPTION =
+  "Find AI-uncensored hentai episodes from every major studio — streaming and downloads in 4K, 1080p, and HD.";
 
 export const metadata: Metadata = {
-  title: "Browse Hentai by Studio — All Animation Studios",
-  description:
-    "Browse hentai by animation studio. Find episodes from Pink Pineapple, T-Rex, Lune Pictures, Mary Jane, Queen Bee, and every other studio in the HentaiClick catalog. 4K, 1080p, HD.",
-  openGraph: {
-    title: "Browse Hentai by Studio | HentaiClick",
-    description:
-      "Find AI-uncensored hentai episodes from every major studio — streaming and downloads in 4K, 1080p, and HD.",
+  title: STUDIOS_TITLE,
+  description: STUDIOS_DESCRIPTION,
+  openGraph: buildOpenGraph({
+    title: STUDIOS_OG_TITLE,
+    description: STUDIOS_OG_DESCRIPTION,
     url: "/studios",
-  },
+  }),
+  twitter: buildTwitter({
+    title: STUDIOS_OG_TITLE,
+    description: STUDIOS_OG_DESCRIPTION,
+  }),
   alternates: { canonical: "/studios" },
 };
 
@@ -37,7 +47,7 @@ export default async function StudiosPage() {
       "Index of every animation studio in the HentaiClick catalog — AI-uncensored hentai streaming in 4K, 1080p, and HD.",
     url: `${siteUrl}/studios`,
     inLanguage: "en-US",
-    isPartOf: { "@id": `${siteUrl}#website` },
+    isPartOf: { "@id": `${siteUrl}/#website` },
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: studioList.length,

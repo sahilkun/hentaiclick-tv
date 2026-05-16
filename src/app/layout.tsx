@@ -25,6 +25,10 @@ export const viewport: Viewport = {
   ],
 };
 
+// Note: child pages that set their own `openGraph` block REPLACE this
+// one entirely (Next.js does not deep-merge siblings inside openGraph).
+// Use the helpers in `@/lib/seo` (`buildOpenGraph`, `buildTwitter`) so
+// every per-page block keeps siteName, type, locale, images intact.
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
@@ -41,6 +45,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    images: ["/og-image.png"],
   },
   alternates: {
     canonical: "/",
@@ -75,7 +80,7 @@ export default function RootLayout({
             <ToastProvider>
               {children}
               <DevToolsGuard />
-              <OrganizationJsonLd />
+              <SiteGraphJsonLd />
             </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
@@ -84,8 +89,30 @@ export default function RootLayout({
   );
 }
 
-/** Organization + WebSite structured data for Google Knowledge Panel & Sitelinks */
-function OrganizationJsonLd() {
+/**
+ * Site-wide WebSite + Organization JSON-LD, emitted once per page from
+ * the root layout.
+ *
+ * - WebSite + potentialAction SearchAction: tells Google the canonical
+ *   site search URL pattern, which unlocks the SERP sitelinks search
+ *   box on brand queries.
+ * - Organization: gives Google + AI engines a clean entity to bind
+ *   facts to ("HentaiClick is a streaming site for…").
+ *
+ * Both nodes use `${siteUrl}/#website` and `${siteUrl}/#organization`
+ * as their @ids. Other pages (FAQPage, AboutPage, CollectionPage)
+ * reference these IDs via `isPartOf` / `about` so the structured-data
+ * graph stays connected. Don't change the @id format without updating
+ * those references.
+ *
+ * Prior version emitted only `name + url` on Organization and `name +
+ * url + SearchAction` on WebSite. Enriched here with description /
+ * inLanguage / knowsAbout so AI engines have something quotable to
+ * extract for the "what is HentaiClick" query class. Used to be
+ * duplicated on the homepage; consolidated here to avoid two
+ * conflicting WebSite entities in Google's graph.
+ */
+function SiteGraphJsonLd() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -94,16 +121,33 @@ function OrganizationJsonLd() {
         "@id": `${siteUrl}/#organization`,
         name: "HentaiClick",
         url: siteUrl,
+        description:
+          "HentaiClick streams AI-uncensored hentai in 4K, 1080p, and HD with English subtitles. Built on an in-house AI decensoring pipeline that removes mosaic censorship frame-by-frame.",
+        email: "connect.hentaiclick@gmail.com",
+        knowsAbout: [
+          "AI uncensored hentai",
+          "AI decensoring",
+          "Mosaic removal",
+          "4K hentai streaming",
+          "HLS adaptive streaming",
+          "Hentai with English subtitles",
+        ],
       },
       {
         "@type": "WebSite",
         "@id": `${siteUrl}/#website`,
         url: siteUrl,
         name: "HentaiClick",
+        description:
+          "Watch and download AI uncensored hentai in 4K, 1080p, and HD on HentaiClick. Stream new decensored episodes free with English subtitles.",
+        inLanguage: "en-US",
         publisher: { "@id": `${siteUrl}/#organization` },
         potentialAction: {
           "@type": "SearchAction",
-          target: { "@type": "EntryPoint", urlTemplate: `${siteUrl}/search?q={search_term_string}` },
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: `${siteUrl}/search?q={search_term_string}`,
+          },
           "query-input": "required name=search_term_string",
         },
       },

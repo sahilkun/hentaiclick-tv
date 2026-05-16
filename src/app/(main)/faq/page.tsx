@@ -2,17 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_NAME } from "@/lib/constants";
 import { safeJsonLd } from "@/lib/utils";
+import { buildOpenGraph, buildTwitter } from "@/lib/seo";
+
+const FAQ_TITLE = "FAQ — HentaiClick";
+const FAQ_DESCRIPTION =
+  "Frequently asked questions about HentaiClick: streaming quality, AI uncensoring, downloads, subtitles, accounts, and how new uncensored hentai episodes are added.";
+const FAQ_OG_DESCRIPTION =
+  "Answers to the most common questions about watching, downloading, and AI-uncensored hentai on HentaiClick.";
 
 export const metadata: Metadata = {
-  title: "FAQ — HentaiClick",
-  description:
-    "Frequently asked questions about HentaiClick: streaming quality, AI uncensoring, downloads, subtitles, accounts, and how new uncensored hentai episodes are added.",
-  openGraph: {
-    title: "FAQ — HentaiClick",
-    description:
-      "Answers to the most common questions about watching, downloading, and AI-uncensored hentai on HentaiClick.",
+  title: FAQ_TITLE,
+  description: FAQ_DESCRIPTION,
+  openGraph: buildOpenGraph({
+    title: FAQ_TITLE,
+    description: FAQ_OG_DESCRIPTION,
     url: "/faq",
-  },
+  }),
+  twitter: buildTwitter({
+    title: FAQ_TITLE,
+    description: FAQ_OG_DESCRIPTION,
+  }),
   alternates: { canonical: "/faq" },
 };
 
@@ -79,7 +88,7 @@ const faqJsonLd = {
   "@id": `${siteUrl}/faq#faqpage`,
   url: `${siteUrl}/faq`,
   inLanguage: "en-US",
-  isPartOf: { "@id": `${siteUrl}#website` },
+  isPartOf: { "@id": `${siteUrl}/#website` },
   mainEntity: faqs.map((f) => ({
     "@type": "Question",
     name: f.q,

@@ -5,6 +5,7 @@ import { getAnonClient } from "@/lib/supabase/anon";
 import { EpisodeGrid } from "@/components/episode/episode-grid";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getGenreBySlug, getGenreEpisodes } from "@/lib/queries/genres";
+import { buildOpenGraph, buildTwitter } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -30,15 +31,42 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // in 4K" template that matches the high-intent query shape.
   const title = `${genre.name} Hentai`;
   const description = `Watch ${genre.name} hentai online — AI-uncensored and originally-uncensored episodes streaming in 4K, 1080p, and HD with English subtitles. Most episodes available for 1080p or 4K MKV download.`;
+  const ogTitle = `${title} | HentaiClick`;
+
+  // Pick a representative episode poster as the social-share image so
+  // each genre page has a distinct preview instead of falling back to
+  // the site-wide /og-image.png. Fall back to the default when the
+  // genre's first episode has no poster (rare — newly-inserted rows
+  // that haven't had their CDN assets stitched yet).
+  const firstEpisode = (await getGenreEpisodes(genre.id))[0];
+  // poster_url is `string | null` in the row; coerce null -> undefined
+  // so it threads into the optional-string OG helper without a type
+  // widening hack.
+  const ogImageUrl: string | undefined =
+    firstEpisode?.poster_url ?? undefined;
+  const ogImage = ogImageUrl
+    ? {
+        url: ogImageUrl,
+        width: 1280,
+        height: 720,
+        alt: `${genre.name} hentai on HentaiClick`,
+      }
+    : undefined;
 
   return {
     title,
     description,
-    openGraph: {
-      title: `${title} | HentaiClick`,
+    openGraph: buildOpenGraph({
+      title: ogTitle,
       description,
       url: `/genres/${slug}`,
-    },
+      image: ogImage,
+    }),
+    twitter: buildTwitter({
+      title: ogTitle,
+      description,
+      image: ogImageUrl,
+    }),
     alternates: { canonical: `/genres/${slug}` },
   };
 }
@@ -78,7 +106,7 @@ export default async function GenreDetailPage({ params }: Props) {
     name: `${genre.name} Hentai`,
     description: `Every ${genre.name} hentai episode in the HentaiClick catalog — AI-uncensored and originally-uncensored, streaming in 4K, 1080p, and HD with English subtitles.`,
     inLanguage: "en-US",
-    isPartOf: { "@id": `${siteUrl}#website` },
+    isPartOf: { "@id": `${siteUrl}/#website` },
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: episodeCount,
