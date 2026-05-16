@@ -25,15 +25,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!studio) return { title: "Studio Not Found" };
 
+  const title = `${studio.name} Hentai Episodes`;
   const description =
     studio.description ||
-    `Browse all hentai episodes by ${studio.name}. Stream in 4K, 1080p, and HD for free.`;
+    `Watch every hentai episode by ${studio.name} on HentaiClick — AI-uncensored and originally-uncensored releases streaming in 4K, 1080p, and HD with English subtitles. 1080p / 4K MKV downloads available.`;
 
   return {
-    title: `${studio.name} Episodes`,
+    title,
     description,
     openGraph: {
-      title: `${studio.name} Episodes | HentaiClick`,
+      title: `${title} | HentaiClick`,
       description,
       url: `/studios/${slug}`,
     },
@@ -48,17 +49,52 @@ export default async function StudioDetailPage({ params }: Props) {
   if (!studio) notFound();
 
   const episodes = await getStudioEpisodes(studio.id);
+  const episodeCount = episodes.length;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
+  const pageUrl = `${siteUrl}/studios/${slug}`;
+
   const breadcrumb = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
       { "@type": "ListItem", position: 2, name: "Studios", item: `${siteUrl}/studios` },
-      { "@type": "ListItem", position: 3, name: studio.name, item: `${siteUrl}/studios/${slug}` },
+      { "@type": "ListItem", position: 3, name: studio.name, item: pageUrl },
     ],
   };
+
+  const collectionJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${pageUrl}#collectionpage`,
+    url: pageUrl,
+    name: `${studio.name} Hentai Episodes`,
+    description:
+      studio.description ||
+      `Every hentai episode by ${studio.name} in the HentaiClick catalog — AI-uncensored and originally-uncensored, streaming in 4K, 1080p, and HD.`,
+    inLanguage: "en-US",
+    isPartOf: { "@id": `${siteUrl}#website` },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: episodeCount,
+      itemListElement: episodes
+        .slice(0, 50)
+        .map((ep: any, i: number) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: `${siteUrl}/episode/${ep.slug}`,
+          name: ep.title,
+        })),
+    },
+  };
+
+  // Fall back to a templated intro paragraph when the studio row has
+  // no DB description. Keeps the page from being a thin header + grid
+  // for the dozens of studios we haven't written bespoke copy for yet.
+  const fallbackIntro = `Watch every hentai episode by ${studio.name} on HentaiClick — AI-uncensored and originally-uncensored releases streaming in 4K, 1080p, and HD with English subtitles. ${episodeCount} ${
+    episodeCount === 1 ? "episode" : "episodes"
+  } currently in the ${studio.name} catalog, with new uploads added regularly. Most episodes also offer a downloadable 1080p or 4K MKV.`;
 
   return (
     <>
@@ -66,31 +102,39 @@ export default async function StudioDetailPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }}
+      />
       <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
         <Breadcrumb items={[
           { label: "Home", href: "/" },
           { label: "Studios", href: "/studios" },
           { label: studio.name },
         ]} />
-        <div className="mb-6 flex items-center gap-4">
+        <div className="mb-6 flex items-start gap-4">
           {studio.logo_url && (
             <Image
               src={studio.logo_url}
               alt={studio.name}
               width={64}
               height={64}
-              className="h-16 w-16 rounded-full object-cover"
+              className="h-16 w-16 shrink-0 rounded-full object-cover"
             />
           )}
-          <div>
-            <h1 className="text-2xl font-bold">{studio.name}</h1>
-            {studio.description && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {studio.description}
-              </p>
-            )}
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              {studio.name} Hentai Episodes
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {episodeCount} {episodeCount === 1 ? "episode" : "episodes"}{" "}
+              available
+            </p>
           </div>
         </div>
+        <p className="mb-8 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+          {studio.description || fallbackIntro}
+        </p>
 
         <EpisodeGrid episodes={episodes} />
       </div>

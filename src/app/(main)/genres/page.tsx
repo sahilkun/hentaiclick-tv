@@ -4,11 +4,13 @@ import type { Metadata } from "next";
 import { getGenres } from "@/lib/queries/episodes";
 
 export const metadata: Metadata = {
-  title: "Genres",
-  description: "Browse hentai by genre. Find your favorite categories and discover new ones. Stream in 4K, 1080p, and HD for free.",
+  title: "Browse Hentai by Genre — All Categories",
+  description:
+    "Browse the full HentaiClick catalog by genre — vanilla, yuri, milf, big tits, ahegao, romance, fantasy, and dozens more. AI-uncensored hentai streaming in 4K, 1080p, and HD with English subtitles.",
   openGraph: {
-    title: "Browse Genres | HentaiClick",
-    description: "Browse hentai by genre. Find your favorite categories and discover new ones.",
+    title: "Browse Hentai by Genre | HentaiClick",
+    description:
+      "Find your favorite hentai categories — vanilla, yuri, milf, big tits, ahegao, romance, fantasy, and more. Streaming and downloads in 4K, 1080p, and HD.",
     url: "/genres",
   },
   alternates: { canonical: "/genres" },
@@ -20,12 +22,20 @@ export default async function GenresPage() {
   const genres = await getGenres();
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
+  // CollectionPage tells Google + AI engines this is an index of named
+  // entities, not a content article. The ItemList enumerates every
+  // genre by name + URL so AI agents fetching a single page can answer
+  // "what genres does HentaiClick have?" without follow-up requests.
   const collectionJsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "Browse Genres",
-    description: "Browse hentai by genre. Find your favorite categories and discover new ones.",
+    "@id": `${siteUrl}/genres#collectionpage`,
+    name: "Browse Hentai by Genre",
+    description:
+      "Index of every genre in the HentaiClick catalog — AI-uncensored hentai streaming in 4K, 1080p, and HD.",
     url: `${siteUrl}/genres`,
+    inLanguage: "en-US",
+    isPartOf: { "@id": `${siteUrl}#website` },
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: genres.length,
@@ -45,9 +55,30 @@ export default async function GenresPage() {
         dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }}
       />
       <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
-        <h1 className="mb-6 text-2xl font-bold">Genres</h1>
+        {/* H1 + intro paragraph. Was a bare "Genres" heading with no body
+            copy — practically invisible to any "[genre] hentai" or
+            "browse hentai by genre" query. Now keyword-loaded H1 + a
+            short paragraph that names the most-searched genres in
+            running prose so the page can pick up long-tail traffic
+            without us writing a per-genre description column yet. */}
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          Browse Hentai by Genre
+        </h1>
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+          Find your favorite hentai categories on HentaiClick. The catalog
+          covers every major genre — vanilla, yuri, milf, big tits, ahegao,
+          romance, fantasy, schoolgirl, harem, NTR, and dozens more — plus
+          tags for AI-uncensored and originally-uncensored episodes. Every
+          release streams in 4K, 1080p, or HD with English subtitles, and
+          most come with a downloadable 1080p or 4K MKV. Pick a genre below
+          to jump straight to the full episode list, or use the{" "}
+          <Link href="/search" className="text-primary hover:underline">
+            search page
+          </Link>{" "}
+          to combine multiple filters at once.
+        </p>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {genres.map((genre: any) => (
             <Link
               key={genre.id}

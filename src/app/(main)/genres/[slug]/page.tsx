@@ -24,13 +24,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!genre) return { title: "Genre Not Found" };
 
-  const description = `Watch the best ${genre.name} hentai episodes in 4K, 1080p, and HD for free.`;
+  // Keyword-loaded title pattern: "Yuri Hentai" beats "Yuri Hentai
+  // Episodes" (latter is the old pattern, drowns the keyword in
+  // boilerplate). Description follows the "watch/download X hentai
+  // in 4K" template that matches the high-intent query shape.
+  const title = `${genre.name} Hentai`;
+  const description = `Watch ${genre.name} hentai online — AI-uncensored and originally-uncensored episodes streaming in 4K, 1080p, and HD with English subtitles. Most episodes available for 1080p or 4K MKV download.`;
 
   return {
-    title: `${genre.name} Hentai`,
+    title,
     description,
     openGraph: {
-      title: `${genre.name} Hentai | HentaiClick`,
+      title: `${title} | HentaiClick`,
       description,
       url: `/genres/${slug}`,
     },
@@ -45,16 +50,47 @@ export default async function GenreDetailPage({ params }: Props) {
   if (!genre) notFound();
 
   const episodes = await getGenreEpisodes(genre.id);
+  const episodeCount = episodes.length;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hentaiclick.tv";
+  const pageUrl = `${siteUrl}/genres/${slug}`;
+
   const breadcrumb = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
       { "@type": "ListItem", position: 2, name: "Genres", item: `${siteUrl}/genres` },
-      { "@type": "ListItem", position: 3, name: genre.name, item: `${siteUrl}/genres/${slug}` },
+      { "@type": "ListItem", position: 3, name: genre.name, item: pageUrl },
     ],
+  };
+
+  // CollectionPage + ItemList of the actual episode results. Caps at
+  // 50 entries so the JSON-LD blob stays sane on popular genres that
+  // can have hundreds of episodes — the visible grid still shows all.
+  // The cap mirrors what Google's structured-data validators recommend
+  // for ItemList; more than 50 dilutes the signal anyway.
+  const collectionJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${pageUrl}#collectionpage`,
+    url: pageUrl,
+    name: `${genre.name} Hentai`,
+    description: `Every ${genre.name} hentai episode in the HentaiClick catalog — AI-uncensored and originally-uncensored, streaming in 4K, 1080p, and HD with English subtitles.`,
+    inLanguage: "en-US",
+    isPartOf: { "@id": `${siteUrl}#website` },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: episodeCount,
+      itemListElement: episodes
+        .slice(0, 50)
+        .map((ep: any, i: number) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: `${siteUrl}/episode/${ep.slug}`,
+          name: ep.title,
+        })),
+    },
   };
 
   return (
@@ -63,13 +99,40 @@ export default async function GenreDetailPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }}
+      />
       <div className="mx-auto max-w-[100%] xl:max-w-[95%] 2xl:max-w-[85%] sm:px-6 lg:px-8 py-8">
         <Breadcrumb items={[
           { label: "Home", href: "/" },
           { label: "Genres", href: "/genres" },
           { label: genre.name },
         ]} />
-        <h1 className="mb-6 text-2xl font-bold">{genre.name}</h1>
+        {/* Keyword-loaded H1 + count badge + intro. Old version was a
+            bare 2xl heading of just genre.name with nothing else — page
+            had zero body copy beyond the grid, so "[genre] hentai"
+            queries never matched anywhere on the page outside the
+            <title>. The intro is templated (no per-genre DB description
+            column yet) but still hits the right keyword pattern and
+            tells crawlers what the page is about. */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            {genre.name} Hentai
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {episodeCount} {episodeCount === 1 ? "episode" : "episodes"}{" "}
+            available
+          </p>
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            Watch {genre.name.toLowerCase()} hentai online on HentaiClick — a
+            mix of AI-uncensored and originally-uncensored episodes streaming
+            in 4K, 1080p, and HD with English subtitles. New {genre.name.toLowerCase()}{" "}
+            uploads are added regularly; most episodes also include a
+            downloadable 1080p or 4K MKV. Scroll for the full list or sort
+            with the controls below.
+          </p>
+        </div>
         <EpisodeGrid episodes={episodes} />
       </div>
     </>
