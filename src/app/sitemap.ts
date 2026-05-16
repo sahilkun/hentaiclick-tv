@@ -16,11 +16,11 @@ const getSitemapData = unstable_cache(
     ] = await Promise.all([
       // Episode rows carry the extra fields needed for the per-episode
       // <video:video> sitemap entry (thumbnail / title / description /
-      // duration / publish date).
+      // duration / publish date / master playlist URL for content_loc).
       supabase
         .from("episodes")
         .select(
-          "slug, updated_at, upload_date, title, poster_url, thumbnail_url, meta_description, description, duration_seconds"
+          "slug, updated_at, upload_date, title, poster_url, thumbnail_url, meta_description, description, duration_seconds, stream_links"
         )
         .eq("status", "published")
         .order("upload_date", { ascending: false })
@@ -65,24 +65,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Build a <video:video> entry so episodes surface in Google Video
     // search + the Videos tab and are eligible for video rich results.
     //   - thumbnail_loc / title / description are Google-REQUIRED.
-    //   - player_loc points at the watch page: streaming sites use
-    //     player_loc (the page hosting the HLS.js player) rather than
-    //     content_loc, since there's no single downloadable file —
-    //     and the .mkv download URLs are HMAC-gated (403 to crawlers).
+    //   - content_loc points at the actual HLS master playlist (the
+    //     "video file" from Google's POV). Initial version used
+    //     player_loc pointing at the watch page, but GSC flagged that
+    //     as "<player_loc> is the same as <loc>" -- Google wants the
+    //     two to differ. content_loc on the .m3u8 satisfies that and
+    //     Google's video pipeline accepts HLS streams.
     //   - family_friendly: "no" is the honest signal for adult content
     //     so Google applies SafeSearch correctly instead of
     //     mis-categorising the whole site.
-    // An entry is only attached when a thumbnail exists — thumbnail_loc
-    // is required and Google rejects a <video:video> without it.
-    // poster_url / thumbnail_url are stored with literal spaces (the
-    // schema convention). A literal space is invalid in a URL and
-    // Google's video sitemap validator can reject the whole entry, so
-    // percent-encode it. encodeURI leaves :// and / intact and only
-    // encodes the unsafe chars (spaces), and our stored URLs are never
+    // An entry is only attached when BOTH a thumbnail and a master
+    // playlist exist -- both are required for the entry to be valid.
+    // poster_url / stream_links.master are stored with literal spaces
+    // (the schema convention). A literal space is invalid in a URL and
+    // Google's video sitemap validator rejects the whole entry, so
+    // percent-encode both. encodeURI leaves :// and / intact and only
+    // encodes unsafe chars (spaces); our stored URLs are never
     // pre-encoded, so there's no double-encoding risk.
     const rawThumb: string | undefined =
       ep.poster_url || ep.thumbnail_url || undefined;
     const thumb = rawThumb ? encodeURI(rawThumb) : undefined;
+    const rawMaster: string | undefined =
+      (ep.stream_links as Record<string, string> | null | undefined)?.master ||
+      undefined;
+    const contentLoc = rawMaster ? encodeURI(rawMaster) : undefined;
     const description =
       (ep.meta_description || ep.description || "").trim() ||
       `Watch ${ep.title} on HentaiClick.`;
@@ -96,14 +102,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: ep.updated_at ? new Date(ep.updated_at) : undefined,
       changeFrequency: "weekly" as const,
       priority: 0.9,
-      ...(thumb
+      ...(thumb && contentLoc
         ? {
             videos: [
               {
                 title: String(ep.title).slice(0, 100),
                 thumbnail_loc: thumb,
                 description: description.slice(0, 2048),
-                player_loc: pageUrl,
+                content_loc: contentLoc,
                 family_friendly: "no" as const,
                 requires_subscription: "no" as const,
                 ...(duration ? { duration } : {}),
