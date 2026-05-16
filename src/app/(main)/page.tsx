@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SITE_NAME, SITE_DESCRIPTION } from "@/lib/constants";
+import { safeJsonLd } from "@/lib/utils";
 import { EpisodeGridSkeleton } from "@/components/episode/episode-grid";
 import {
   PrimaryEpisodeTabs,
@@ -26,9 +27,53 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
+// Site-wide JSON-LD emitted on the homepage. Two graphs:
+//   - WebSite + potentialAction SearchAction: tells Google the
+//     canonical site search URL pattern, which unlocks the SERP
+//     sitelinks search box on brand queries.
+//   - Organization: gives Google + AI engines a clean entity to bind
+//     facts to ("HentaiClick is a streaming site for…"). Lightweight —
+//     no logo URL constraints since we don't have an SVG mark
+//     externally hosted at a fixed location yet.
+const siteUrl = "https://hentaiclick.tv";
+const homepageJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}#website`,
+      url: siteUrl,
+      name: SITE_NAME,
+      description: SITE_DESCRIPTION,
+      inLanguage: "en-US",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${siteUrl}/search?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
+      publisher: { "@id": `${siteUrl}#organization` },
+    },
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}#organization`,
+      name: SITE_NAME,
+      url: siteUrl,
+      description:
+        "HentaiClick streams AI-uncensored hentai in 4K, 1080p, and HD with English subtitles. Built on an in-house AI decensoring pipeline that removes mosaic censorship frame-by-frame.",
+    },
+  ],
+};
+
 export default function HomePage() {
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(homepageJsonLd) }}
+      />
       {/* Hero Banner — H1 is the single most heavily weighted heading on
           the most-crawled page. Keep the brand name visually prominent via
           the inline span, but the actual H1 text must include the target
