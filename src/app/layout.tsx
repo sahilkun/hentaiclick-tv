@@ -63,6 +63,16 @@ export default function RootLayout({
         {/* Preconnect to the CDN actually used for streams, images, and downloads */}
         <link rel="preconnect" href="https://cdn.hentaiclick.tv" crossOrigin="anonymous" />
         {/* Supabase preconnect omitted — self-hosted on hentaiclick.tv (same-origin, no benefit) */}
+        {/* RSS auto-discovery. Browsers and feed readers look for this
+            in <head> to surface a "subscribe" UI. AI engines that
+            poll feeds for fresh content (Perplexity, etc.) also key
+            off this link rather than crawling for /rss.xml blindly. */}
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="HentaiClick — Latest Episodes"
+          href="/rss.xml"
+        />
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-J245QRXDYG" strategy="lazyOnload" />
         <Script id="google-analytics" strategy="lazyOnload">
           {"window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-J245QRXDYG');"}

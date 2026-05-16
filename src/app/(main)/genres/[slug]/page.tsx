@@ -98,6 +98,15 @@ export default async function GenreDetailPage({ params }: Props) {
   // can have hundreds of episodes — the visible grid still shows all.
   // The cap mirrors what Google's structured-data validators recommend
   // for ItemList; more than 50 dilutes the signal anyway.
+  // dateModified is the strongest "fresh content" signal we can give
+  // Google and AI engines for a listing page. Use the most recent
+  // episode's upload_date — newest first because getGenreEpisodes
+  // already sorts upload_date DESC — so the timestamp moves whenever
+  // any episode in the genre is added or refreshed.
+  const newestEpisode = episodes[0];
+  const dateModified =
+    newestEpisode?.updated_at || newestEpisode?.upload_date || undefined;
+
   const collectionJsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -107,6 +116,7 @@ export default async function GenreDetailPage({ params }: Props) {
     description: `Every ${genre.name} hentai episode in the HentaiClick catalog — AI-uncensored and originally-uncensored, streaming in 4K, 1080p, and HD with English subtitles.`,
     inLanguage: "en-US",
     isPartOf: { "@id": `${siteUrl}/#website` },
+    ...(dateModified && { dateModified }),
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: episodeCount,

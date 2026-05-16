@@ -162,6 +162,7 @@ function getVideoJsonLd(episode: NonNullable<Awaited<ReturnType<typeof getEpisod
     description,
     thumbnailUrl: thumbnails.length > 1 ? thumbnails : thumbnails[0],
     uploadDate: episode.upload_date,
+    ...(episode.updated_at ? { dateModified: episode.updated_at } : {}),
     ...(episode.duration_seconds && {
       duration: `PT${Math.floor(episode.duration_seconds / 60)}M${episode.duration_seconds % 60}S`,
     }),

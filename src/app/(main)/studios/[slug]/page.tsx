@@ -91,6 +91,15 @@ export default async function StudioDetailPage({ params }: Props) {
     ],
   };
 
+  // dateModified is the strongest "fresh content" signal we can give
+  // Google and AI engines for a listing page. Use the most recent
+  // episode's upload_date — newest first because getStudioEpisodes
+  // already sorts upload_date DESC — so the timestamp moves whenever
+  // a new episode lands for the studio.
+  const newestEpisode = episodes[0];
+  const dateModified =
+    newestEpisode?.updated_at || newestEpisode?.upload_date || undefined;
+
   const collectionJsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -102,6 +111,7 @@ export default async function StudioDetailPage({ params }: Props) {
       `Every hentai episode by ${studio.name} in the HentaiClick catalog — AI-uncensored and originally-uncensored, streaming in 4K, 1080p, and HD.`,
     inLanguage: "en-US",
     isPartOf: { "@id": `${siteUrl}/#website` },
+    ...(dateModified && { dateModified }),
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: episodeCount,

@@ -8,6 +8,7 @@ const footerLinks = [
   { href: "/premium", label: "Premium" },
   { href: "/about", label: "About" },
   { href: "/faq", label: "FAQ" },
+  { href: "/rss.xml", label: "RSS" },
 ];
 
 export function Footer() {

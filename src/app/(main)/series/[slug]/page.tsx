@@ -107,6 +107,7 @@ export default async function SeriesDetailPage({ params }: Props) {
     "@type": "TVSeries",
     name: series.title,
     url: seriesUrl,
+    ...(series.updated_at ? { dateModified: series.updated_at } : {}),
     ...(series.description && { description: series.description }),
     ...(series.cover_url && { image: series.cover_url }),
     ...(series.year && { startDate: String(series.year) }),
