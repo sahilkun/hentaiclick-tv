@@ -55,6 +55,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${siteUrl}/studios`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${siteUrl}/public-playlists`, lastModified: now, changeFrequency: "daily", priority: 0.5 },
     { url: `${siteUrl}/premium`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${siteUrl}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${siteUrl}/faq`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
   ];
 
   const { episodes, series, genres, studios, playlists } = await getSitemapData();

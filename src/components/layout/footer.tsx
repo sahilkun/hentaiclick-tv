@@ -6,6 +6,8 @@ const footerLinks = [
   { href: "/studios", label: "Studios" },
   { href: "/playlists", label: "Playlists" },
   { href: "/premium", label: "Premium" },
+  { href: "/about", label: "About" },
+  { href: "/faq", label: "FAQ" },
 ];
 
 export function Footer() {
