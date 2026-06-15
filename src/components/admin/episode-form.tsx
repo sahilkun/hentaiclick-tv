@@ -69,6 +69,13 @@ export function EpisodeForm({
     gallery_urls: episode?.gallery_urls?.join("\n") ?? "",
     duration_seconds: episode?.duration_seconds ?? 0,
     release_date: episode?.release_date ?? "",
+    // upload_date is a timestamptz — drives every "latest" feed (see
+    // CLAUDE.md). Stored ISO can use a space or "T" separator; normalise
+    // to "T" and slice to the datetime-local format (YYYY-MM-DDTHH:MM).
+    // Blank for new episodes → DB default now() applies on insert.
+    upload_date: episode?.upload_date
+      ? episode.upload_date.replace(" ", "T").slice(0, 16)
+      : "",
     status: episode?.status ?? "draft",
     meta_title: episode?.meta_title ?? "",
     meta_description: episode?.meta_description ?? "",
@@ -157,6 +164,18 @@ export function EpisodeForm({
       meta_title: form.meta_title || null,
       meta_description: form.meta_description || null,
     };
+
+    // upload_date: only send it when the field is filled. The column is
+    // NOT NULL DEFAULT now(), so omitting it on a new episode lets the
+    // default apply; sending null would violate the constraint. The
+    // datetime-local value has no timezone — pin it to UTC so it lands
+    // consistently with the rest of the catalogue (all upload_dates are
+    // stored as +00).
+    if (form.upload_date) {
+      (payload as Record<string, unknown>).upload_date = new Date(
+        `${form.upload_date}:00Z`
+      ).toISOString();
+    }
 
     let episodeId = episode?.id;
 
@@ -661,6 +680,22 @@ export function EpisodeForm({
               setForm({ ...form, release_date: e.target.value })
             }
           />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Upload Date
+          </label>
+          <Input
+            type="datetime-local"
+            value={form.upload_date}
+            onChange={(e) =>
+              setForm({ ...form, upload_date: e.target.value })
+            }
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Drives the “Recently Uploaded” feeds. Mirror hStream’s upload
+            date. Leave blank on a new episode to default to now.
+          </p>
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium">Status</label>

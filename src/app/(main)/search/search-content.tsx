@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Search, ChevronDown, X, Ban, Building2, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -689,15 +690,38 @@ export default function SearchContent() {
         </div>
       )}
 
-      {/* Results count */}
-      <p className="mb-4 text-sm text-muted-foreground">
-        Showing {Math.min((page - 1) * SEARCH_PAGE_SIZE + 1, totalHits)} to{" "}
-        {Math.min(page * SEARCH_PAGE_SIZE, totalHits)} of {totalHits} results
-      </p>
+      {/* Results count. Skip when zero — "Showing 1 to 0 of 0 results"
+          reads as a bug; the no-results block below carries the message. */}
+      {totalHits > 0 && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          Showing {Math.min((page - 1) * SEARCH_PAGE_SIZE + 1, totalHits)} to{" "}
+          {Math.min(page * SEARCH_PAGE_SIZE, totalHits)} of {totalHits} results
+        </p>
+      )}
 
-      {/* Results grid */}
+      {/* Results grid. Empty results render an explicit "no matches"
+          block so the page never goes silent on a no-hits query —
+          previously an empty grid just rendered nothing and the page
+          looked broken. */}
       {loading ? (
         <EpisodeGridSkeleton count={SEARCH_PAGE_SIZE} viewMode={viewMode} />
+      ) : results.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-16 text-center">
+          <p className="text-base font-medium text-foreground">
+            No episodes match your search.
+          </p>
+          <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            Try a shorter or different keyword, remove a filter, or browse by{" "}
+            <Link href="/genres" className="text-primary hover:underline">
+              genre
+            </Link>{" "}
+            or{" "}
+            <Link href="/studios" className="text-primary hover:underline">
+              studio
+            </Link>
+            .
+          </p>
+        </div>
       ) : (
         <EpisodeGrid episodes={results} viewMode={viewMode} />
       )}

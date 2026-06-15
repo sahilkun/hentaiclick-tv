@@ -19,6 +19,11 @@ export function SearchBar({ className }: { className?: string }) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  // `status` tracks the dropdown body so we can show distinct UI for
+  // "still typing / fetch in flight" vs "fetch returned nothing" vs
+  // "fetch returned hits". Before this, an empty-result query rendered
+  // a totally invisible dropdown — UI felt frozen.
+  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -29,11 +34,14 @@ export function SearchBar({ className }: { className?: string }) {
     if (!q.trim()) {
       setResults([]);
       setOpen(false);
+      setStatus("idle");
       return;
     }
     // Cancel any in-flight request before starting a new one
     abortRef.current?.abort();
     abortRef.current = new AbortController();
+    setStatus("loading");
+    setOpen(true);
     try {
       const res = await fetch(
         `/api/search?q=${encodeURIComponent(q)}&limit=${SEARCH_DROPDOWN_LIMIT}`,
@@ -42,10 +50,16 @@ export function SearchBar({ className }: { className?: string }) {
       if (res.ok) {
         const data = await res.json();
         setResults(data.hits ?? []);
-        setOpen(true);
+        setStatus("done");
       }
-    } catch {
-      // silently fail for live search (includes AbortError)
+    } catch (err) {
+      // AbortError fires when a newer keystroke supersedes this fetch —
+      // keep `loading` so the newer request's UI takes over without
+      // flashing a "no results" frame in between.
+      if ((err as Error)?.name !== "AbortError") {
+        setResults([]);
+        setStatus("done");
+      }
     }
   }, []);
 
@@ -53,6 +67,17 @@ export function SearchBar({ className }: { className?: string }) {
     setQuery(value);
     setActiveIndex(-1);
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    // Show the loading frame immediately on keystroke (before the
+    // debounced fetch even fires) so there's never a silent gap
+    // between typing and feedback. The empty-query branch in search()
+    // resets back to "idle".
+    if (value.trim()) {
+      setStatus("loading");
+      setOpen(true);
+    } else {
+      setStatus("idle");
+      setOpen(false);
+    }
     debounceRef.current = setTimeout(() => search(value), SEARCH_DEBOUNCE_MS);
   };
 
@@ -118,7 +143,7 @@ export function SearchBar({ className }: { className?: string }) {
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => query.trim() && results.length > 0 && setOpen(true)}
+            onFocus={() => query.trim() && status !== "idle" && setOpen(true)}
             placeholder="Search hentai..."
             className="h-9 w-full rounded-l-md border border-r-0 border-input bg-background pl-9 pr-8 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
@@ -129,6 +154,7 @@ export function SearchBar({ className }: { className?: string }) {
                 setQuery("");
                 setResults([]);
                 setOpen(false);
+                setStatus("idle");
                 inputRef.current?.focus();
               }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -146,47 +172,79 @@ export function SearchBar({ className }: { className?: string }) {
         </button>
       </div>
 
-      {open && results.length > 0 && (
+      {open && status !== "idle" && (
         <div
           ref={dropdownRef}
           className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-border bg-card shadow-lg"
         >
-          {results.map((result, index) => (
-            <button
-              key={result.slug}
-              type="button"
-              onClick={() => handleSelect(result.slug)}
-              className={cn(
-                "flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-accent",
-                index === activeIndex && "bg-accent"
-              )}
-            >
-              {result.thumbnailUrl && (
-                <Image
-                  src={result.thumbnailUrl}
-                  alt=""
-                  width={64}
-                  height={40}
-                  className="h-10 w-16 rounded object-cover"
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{result.title}</p>
-                {result.seriesTitle && (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {result.seriesTitle}
-                  </p>
-                )}
-              </div>
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="flex w-full items-center justify-center border-t border-border px-3 py-2 text-sm text-primary hover:bg-accent"
-          >
-            View all results for &quot;{query}&quot;
-          </button>
+          {status === "loading" && (
+            <div className="flex items-center justify-center gap-2 px-3 py-4 text-sm text-muted-foreground">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              Searching…
+            </div>
+          )}
+
+          {status === "done" && results.length === 0 && (
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+              No matches for{" "}
+              <span className="font-medium text-foreground">
+                &quot;{query}&quot;
+              </span>
+              . Try a different keyword or browse{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  router.push("/genres");
+                }}
+                className="text-primary hover:underline"
+              >
+                all genres
+              </button>
+              .
+            </div>
+          )}
+
+          {status === "done" && results.length > 0 && (
+            <>
+              {results.map((result, index) => (
+                <button
+                  key={result.slug}
+                  type="button"
+                  onClick={() => handleSelect(result.slug)}
+                  className={cn(
+                    "flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-accent",
+                    index === activeIndex && "bg-accent"
+                  )}
+                >
+                  {result.thumbnailUrl && (
+                    <Image
+                      src={result.thumbnailUrl}
+                      alt=""
+                      width={64}
+                      height={40}
+                      className="h-10 w-16 rounded object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{result.title}</p>
+                    {result.seriesTitle && (
+                      <p className="truncate text-xs text-muted-foreground">
+                        {result.seriesTitle}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="flex w-full items-center justify-center border-t border-border px-3 py-2 text-sm text-primary hover:bg-accent"
+              >
+                View all results for &quot;{query}&quot;
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

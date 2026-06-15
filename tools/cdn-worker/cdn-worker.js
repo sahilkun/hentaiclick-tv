@@ -184,7 +184,7 @@ function parseSingleRange(rangeHeader) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
     // Always answer CORS preflight cheaply.
@@ -235,6 +235,47 @@ export default {
 
     const range = parseSingleRange(request.headers.get("Range"));
 
+    // ─── Edge cache lookup ──────────────────────────────────────────
+    //
+    // Why this exists: a Worker fetching R2 via env.BUCKET.get() does
+    // NOT auto-populate Cloudflare's per-data-center cache. Without
+    // explicit cache.put(), every public request — including ones for
+    // assets we just served seconds ago — becomes another R2 Class B
+    // op. With the catalog at ~hundreds of episodes × m3u8 + many
+    // .m4s segments + posters + galleries, that adds up fast even at
+    // zero user traffic (Googlebot, OG-image scrapers, Slack/Discord
+    // unfurlers, our own smoke tests).
+    //
+    // What we cache:
+    //   - GET only (HEAD is rare; not worth caching separately)
+    //   - non-MKV (MKV is one-shot signed URLs, low repeat rate, and
+    //     the response carries a per-request Content-Disposition that
+    //     we'd rather not share across requests)
+    //   - non-Range (range responses are 206 + Content-Range; caching
+    //     them keyed on URL alone would return the wrong byte slice
+    //     to a different range request)
+    //
+    // Cache key: URL without query string. m3u8 / segments / images
+    // never have query params; MKVs are excluded above.
+    const isCacheable =
+      request.method === "GET" && !isMkv && !range;
+
+    const cache = caches.default;
+    const cacheKey = isCacheable
+      ? new Request(`${url.origin}${url.pathname}`, { method: "GET" })
+      : null;
+
+    if (cacheKey) {
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        // Surface a header so we can confirm cache hits in probes
+        // (Cloudflare doesn't add cf-cache-status to Worker responses).
+        const h = new Headers(cached.headers);
+        h.set("x-cdn-cache", "HIT");
+        return new Response(cached.body, { status: cached.status, headers: h });
+      }
+    }
+
     // HEAD: fetch metadata only, no body
     if (request.method === "HEAD") {
       const head = await env.BUCKET.head(key);
@@ -256,7 +297,8 @@ export default {
 
     const headers = buildResponseHeaders(object, key);
 
-    // If we honored a range, return 206 + Content-Range.
+    // If we honored a range, return 206 + Content-Range. (Not cached —
+    // see isCacheable above.)
     let status = 200;
     if (range && object.range) {
       const start = object.range.offset;
@@ -267,6 +309,18 @@ export default {
       status = 206;
     } else {
       headers.set("Content-Length", String(object.size));
+    }
+
+    // Populate the edge cache for next time. Clone the response because
+    // the body stream is consumed once: one copy goes to the client,
+    // the clone goes to cache.put() (which runs in waitUntil so it
+    // doesn't block the response).
+    if (cacheKey && status === 200) {
+      const respForCache = new Response(object.body, { status, headers });
+      const respForClient = respForCache.clone();
+      headers.set("x-cdn-cache", "MISS");
+      ctx.waitUntil(cache.put(cacheKey, respForCache));
+      return new Response(respForClient.body, { status, headers });
     }
 
     return new Response(object.body, { status, headers });
